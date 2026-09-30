@@ -4,7 +4,14 @@ version = "0.1.0"
 description = "Prediction of Problematic Internet Use (PIU) severity in children and adolescents from physical activity and fitness data (Child Mind Institute – Kaggle)."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "pyarrow>=25.0.1",
+    "scikit-learn>=1.9.1",
+    "seaborn>=0.13.2",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -12,3 +19,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/piu_severity"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "kaggle>=2.2.4",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]

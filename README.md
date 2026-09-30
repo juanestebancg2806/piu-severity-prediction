@@ -8,12 +8,14 @@ Active
 
 ## Contributing Members
 
-- Team Leader: [placeholder]
-- Instructor: [placeholder]
+**Instructor:** [Milton Orlando Sarria](https://github.com/miltonsarria)
 
-| Name | Email |
-| --- | --- |
-| [placeholder] | [placeholder] |
+| Name | GitHub | Email |
+| --- | --- | --- |
+| Juan David Martinez Legarda | [@handle](https://github.com/handle) | [email] |
+| Katherin Adriana Camargo Cetina | [@handle](https://github.com/handle) | [email] |
+| Daniel Velasco López | [@handle](https://github.com/handle) | [email] |
+| Juan Esteban Cardona Garcia | [@juanestebancg2806](https://github.com/juanestebancg2806) | [email] |
 
 ## Project Intro/Objective
 
@@ -27,7 +29,9 @@ Active
 
 - Python
 - uv
-- [placeholder]
+- pandas, NumPy, PyArrow
+- scikit-learn
+- Matplotlib, seaborn
 
 ## Project Description
 
@@ -52,6 +56,10 @@ uv export --format requirements-txt > requirements.txt
 piu-severity-prediction/
 ├── README.md                 # Project overview
 ├── .gitignore
+├── .python-version           # Python version pinned for uv
+├── pyproject.toml            # Project metadata and dependencies
+├── uv.lock                   # Locked dependency versions (reproducibility)
+├── LICENSE                   # MIT license (code only; data has its own Kaggle license)
 ├── deliverables/             # Documents submitted for each course milestone
 │   ├── README.md
 │   ├── deliverable-1/        # Milestone 1 documents

@@ -4,5 +4,3 @@
 
 - the data dictionary, to be added as `data-dictionary.md`
 - a log of technical decisions
-
-Those files are not created yet.

@@ -6,7 +6,14 @@ Data is not versioned in this repository. The competition rules forbid redistrib
 
 ## How to download
 
-TODO: Kaggle API command (the team will fill this in).
+1. Create a Kaggle account and **accept the competition rules** on the competition page (downloads fail with a 403 error otherwise).
+2. Create an API token in Kaggle → Settings → API, and place `kaggle.json` in `~/.kaggle/` (never inside this repository).
+3. From the repository root:
+
+```bash
+uv run kaggle competitions download -c child-mind-institute-problematic-internet-use -p data/raw
+unzip data/raw/child-mind-institute-problematic-internet-use.zip -d data/raw
+```
 
 ## Layout
 
