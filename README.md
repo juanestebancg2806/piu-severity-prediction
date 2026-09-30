@@ -10,12 +10,12 @@ Active
 
 **Instructor:** [Milton Orlando Sarria](https://github.com/miltonsarria)
 
-| Name | GitHub | Email |
-| --- | --- | --- |
-| Juan David Martinez Legarda | [@handle](https://github.com/handle) | [email] |
-| Katherin Adriana Camargo Cetina | [@handle](https://github.com/handle) | [email] |
-| Daniel Velasco López | [@handle](https://github.com/handle) | [email] |
-| Juan Esteban Cardona Garcia | [@juanestebancg2806](https://github.com/juanestebancg2806) | [email] |
+| Name |
+| --- |
+| Juan David Martinez Legarda |
+| Katherin Adriana Camargo Cetina |
+| Daniel Velasco López |
+| Juan Esteban Cardona Garcia |
 
 ## Project Intro/Objective
 
