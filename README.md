@@ -118,5 +118,5 @@ piu-severity-prediction/
 ## Featured Deliverables
 
 - [Deliverable 1](deliverables/deliverable-1/) — Project formulation: problem analysis, state of the art, problem tree, objectives, proposed methodology, and semester plan (October 19, 2026).
-- [Deliverable 2](deliverables/deliverable-2/) — Data understanding and preparation: exploratory data analysis, data treatment, and validation pipeline (November 14, 2026, planned).
-- [Deliverable 3](deliverables/deliverable-3/) — Final report and video: modeling, evaluation, interpretability, and feasibility recommendations (December 1, 2026, planned).
+- [Deliverable 2](deliverables/deliverable-2/) — Data understanding and initial experiments: exploratory data analysis, data treatment, validation pipeline, baseline model, and initial hypothesis tests (November 14, 2026, planned).
+- [Deliverable 3](deliverables/deliverable-3/) — Final report, video, and oral presentation: modeling, evaluation, interpretability, and feasibility recommendations (December 1, 2026, planned).
