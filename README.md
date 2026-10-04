@@ -76,11 +76,18 @@ Anyone not using uv can generate a `requirements.txt` with:
 uv export --format requirements-txt > requirements.txt
 ```
 
+## Contributing
+
+All team members are collaborators: clone the repository, work on a `feature/*` branch, and open a pull request to `main`. The step-by-step workflow is in [CONTRIBUTING.md](CONTRIBUTING.md). Rules for contributors and AI coding assistants (data privacy, leakage prevention, architecture, and code style) are defined in [AGENTS.md](AGENTS.md); `CLAUDE.md` imports the same file.
+
 ## Project Structure
 
 ```
 piu-severity-prediction/
 ├── README.md                 # Project overview
+├── AGENTS.md                 # Rules for contributors and AI assistants
+├── CLAUDE.md                 # Imports AGENTS.md for Claude Code
+├── CONTRIBUTING.md           # Team Git workflow
 ├── .gitignore
 ├── .python-version           # Python version pinned for uv
 ├── pyproject.toml            # Project metadata and dependencies
