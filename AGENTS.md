@@ -23,7 +23,7 @@ Prediction of PIU severity (SII, ordinal 0–3) from physical and demographic da
 - `src/piu_severity/`: reusable code. `data/` loading and cleaning, `features/` variable groups and feature engineering, `models/` pipelines, training, and evaluation, `visualization/` reusable plots.
 - `notebooks/`: narrative and exploration only. When a function is used twice, move it to `src/`.
 - `data/raw/` is immutable. Write intermediate data to `data/interim/` and model-ready data to `data/processed/`.
-- Save report figures to `reports/figures/` via `FIGURES_DIR`.
+- Save report figures to a subfolder named after the notebook stem, `reports/figures/<notebook_stem>/` (for example, `FIGURES_DIR / "01_eda"`), so figures from different notebooks do not mix.
 
 ## Code style
 - Python 3.13, dependencies managed only with `uv add` / `uv sync`. Never use pip or edit `uv.lock` by hand.
