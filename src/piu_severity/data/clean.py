@@ -61,9 +61,16 @@ PROTOCOL_MAXIMA: dict[str, float] = {
 
 BLOOD_PRESSURE_COLUMNS: tuple[str, str] = ("Physical-Diastolic_BP", "Physical-Systolic_BP")
 
+RECORD_LEVEL_PREFIXES: tuple[str, ...] = ("BIA-",)
+SEASON_SUFFIX = "-Season"
 
-def invalid_value_mask(data: pd.DataFrame) -> pd.DataFrame:
-    """Return a boolean frame that marks implausible values; missing values are never marked."""
+
+def invalid_value_mask(data: pd.DataFrame, propagate_records: bool = True) -> pd.DataFrame:
+    """Return a boolean frame that marks implausible values; missing values are never marked.
+
+    With propagate_records, one implausible value of an instrument listed in
+    RECORD_LEVEL_PREFIXES marks every recorded value of that instrument for the participant.
+    """
     mask = pd.DataFrame(False, index=data.index, columns=data.columns)
     for column in POSITIVE_COLUMNS:
         if column in data.columns:
@@ -76,6 +83,14 @@ def invalid_value_mask(data: pd.DataFrame) -> pd.DataFrame:
         inverted = data[diastolic] >= data[systolic]
         mask[diastolic] |= inverted
         mask[systolic] |= inverted
+    if propagate_records:
+        for prefix in RECORD_LEVEL_PREFIXES:
+            columns = [
+                c for c in data.columns if c.startswith(prefix) and not c.endswith(SEASON_SUFFIX)
+            ]
+            if columns:
+                corrupted = mask[columns].any(axis="columns")
+                mask.loc[corrupted, columns] = data.loc[corrupted, columns].notna()
     return mask
 
 

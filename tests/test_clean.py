@@ -22,6 +22,18 @@ def _frame():
     )
 
 
+def _bia_frame():
+    return pd.DataFrame(
+        {
+            "BIA-Season": ["Fall", "Fall", "Spring"],
+            "BIA-BIA_Fat": [20.0, -5.0, 15.0],
+            "BIA-BIA_FFM": [60.0, 8000.0, 55.0],
+            "BIA-BIA_TBW": [45.0, np.nan, 40.0],
+            "Physical-Weight": [90.0, 95.0, 80.0],
+        }
+    )
+
+
 def test_positive_and_range_rules():
     mask = invalid_value_mask(_frame())
     assert mask["BIA-BIA_Fat"].tolist() == [False, True, True, False]
@@ -47,6 +59,21 @@ def test_columns_without_rules_are_untouched():
 def test_missing_rule_columns_are_ignored():
     data = pd.DataFrame({"Basic_Demos-Age": [10, 12]})
     assert not invalid_value_mask(data).any().any()
+
+
+def test_invalid_bia_value_invalidates_the_whole_record():
+    mask = invalid_value_mask(_bia_frame())
+    assert mask["BIA-BIA_FFM"].tolist() == [False, True, False]
+    assert mask["BIA-BIA_Fat"].tolist() == [False, True, False]
+    assert mask["BIA-BIA_TBW"].tolist() == [False, False, False]
+    assert not mask["BIA-Season"].any()
+    assert not mask["Physical-Weight"].any()
+
+
+def test_record_propagation_can_be_disabled():
+    mask = invalid_value_mask(_bia_frame(), propagate_records=False)
+    assert mask["BIA-BIA_Fat"].tolist() == [False, True, False]
+    assert mask["BIA-BIA_FFM"].tolist() == [False, False, False]
 
 
 def test_mask_invalid_values_returns_copy():
