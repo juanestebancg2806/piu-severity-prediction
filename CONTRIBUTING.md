@@ -7,11 +7,11 @@ All team members are collaborators of this repository. Work directly on it (clon
 1. Accept the collaborator invitation sent by GitHub (check your email).
 2. Clone the repository and install the environment:
 
-```bash
+   ```bash
    git clone https://github.com/juanestebancg2806/piu-severity-prediction.git
    cd piu-severity-prediction
    uv sync
-```
+   ```
 
 3. Download the data into `data/raw/` as described in [data/README.md](data/README.md). The data is never committed.
 
@@ -19,30 +19,30 @@ All team members are collaborators of this repository. Work directly on it (clon
 
 1. Update your local `main`:
 
-```bash
+   ```bash
    git checkout main
    git pull
-```
+   ```
 
 2. Create a branch for your task (short, descriptive name):
 
-```bash
+   ```bash
    git checkout -b feature/eda-target
-```
+   ```
 
 3. Work and save your changes in small commits:
 
-```bash
+   ```bash
    git status                 # review what changed
    git add notebooks/01_eda.ipynb
    git commit -m "Add target distribution analysis"
-```
+   ```
 
 4. Push your branch:
 
-```bash
+   ```bash
    git push -u origin feature/eda-target
-```
+   ```
 
 5. Open a pull request on GitHub from your branch to `main` and ask a teammate to review it.
 6. After it is merged, go back to step 1 before starting a new task.
