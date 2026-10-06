@@ -9,6 +9,7 @@ MODELS_DIR = PROJECT_ROOT / "models"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 ACTIGRAPHY_TRAIN_DIR = RAW_DATA_DIR / "series_train.parquet"
+ACTIGRAPHY_SUMMARY_FILE = INTERIM_DATA_DIR / "actigraphy_summary.parquet"
 
 TRAIN_FILE = "train.csv"
 TEST_FILE = "test.csv"

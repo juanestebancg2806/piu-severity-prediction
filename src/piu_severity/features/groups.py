@@ -1,4 +1,4 @@
-"""Variable groups and feature sets defined in the project formulation."""
+"""Variable groups, feature sets and column exclusions of the project."""
 
 from collections.abc import Iterable
 
@@ -16,6 +16,8 @@ INSTRUMENT_GROUPS: dict[str, str] = {
     "BIA": "physical",
     "PAQ_A": "physical",
     "PAQ_C": "physical",
+    "PAQ": "physical",
+    "Actigraphy": "physical",
     "SDS": "complementary",
     "CGAS": "complementary",
     "PreInt_EduHx": "complementary",
@@ -26,6 +28,31 @@ FEATURE_SETS: dict[str, tuple[str, ...]] = {
     "main": ("demographic", "physical"),
     "complementary": ("demographic", "physical", "complementary"),
 }
+
+PAQ_SOURCE_COLUMNS: tuple[str, ...] = ("PAQ_A-PAQ_A_Total", "PAQ_C-PAQ_C_Total")
+PAQ_TOTAL_COLUMN = "PAQ-PAQ_Total"
+
+LOW_COVERAGE_COLUMNS: tuple[str, ...] = (
+    "Fitness_Endurance-Max_Stage",
+    "Fitness_Endurance-Time_Mins",
+    "Fitness_Endurance-Time_Sec",
+    "Physical-Waist_Circumference",
+)
+
+REDUNDANT_COLUMNS: tuple[str, ...] = (
+    "BIA-BIA_BMR",
+    "BIA-BIA_TBW",
+    "BIA-BIA_LST",
+    "BIA-BIA_LDM",
+    "BIA-BIA_BMI",
+    "BIA-BIA_DEE",
+    "BIA-BIA_BMC",
+    "SDS-SDS_Total_Raw",
+)
+
+DROPPED_COLUMNS: frozenset[str] = frozenset(
+    (*LOW_COVERAGE_COLUMNS, *REDUNDANT_COLUMNS, *PAQ_SOURCE_COLUMNS)
+)
 
 
 def instrument_of(column: str) -> str:
@@ -43,6 +70,11 @@ def is_excluded(column: str) -> bool:
 def is_instrument_season(column: str) -> bool:
     """Return True for per-instrument participation season columns."""
     return column.endswith(SEASON_SUFFIX) and column != ENROLL_SEASON_COLUMN
+
+
+def is_dropped(column: str) -> bool:
+    """Return True for the predictors removed after the exploratory analysis."""
+    return column in DROPPED_COLUMNS
 
 
 def column_group(column: str) -> str:
@@ -63,3 +95,12 @@ def feature_set_columns(columns: Iterable[str], feature_set: str) -> list[str]:
         raise KeyError(f"Unknown feature set {feature_set!r}")
     groups = FEATURE_SETS[feature_set]
     return [column for column in columns if column_group(column) in groups]
+
+
+def model_feature_columns(columns: Iterable[str], feature_set: str) -> list[str]:
+    """Return the predictors of a feature set after the exploratory exclusions."""
+    return [
+        column
+        for column in feature_set_columns(columns, feature_set)
+        if not is_dropped(column)
+    ]
