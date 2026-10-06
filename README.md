@@ -27,10 +27,12 @@ The objective of this project is to evaluate how well physical activity and fitn
 
 - CRISP-DM process model
 - Exploratory data analysis
+- Leakage-safe preprocessing pipelines: per-instrument missingness indicators, imputation, and Yeo-Johnson transformation fitted within each training fold
 - Ordinal classification: multiclass baseline, Frank and Hall decomposition, and regression with optimized thresholds
 - Regularized logistic regression, random forests, gradient boosting, and support vector machines
 - Nested, repeated, stratified cross-validation
 - Quadratic weighted kappa (QWK), per-level sensitivity, and under-estimation rate
+- Label permutation tests and paired fold-level comparisons with the Nadeau–Bengio corrected t-test
 - Model interpretability with SHAP values
 - Error analysis by sex and age group
 
@@ -54,8 +56,10 @@ The objective of this project is to evaluate how well physical activity and fitn
 | Set | Variables |
 | --- | --- |
 | Reference | Demographics (age, sex, enrollment season) |
-  | Main | Demographics + physical measures (anthropometrics, vital signs, FitnessGram, bioelectrical impedance, physical activity questionnaire, wrist actigraphy) |
+| Main | Demographics + physical measures (anthropometrics, vital signs, FitnessGram, bioelectrical impedance, physical activity questionnaire, wrist actigraphy) |
 | Complementary | Main + sleep disturbance, global functioning, and internet use hours |
+
+An ablation of the main set without the actigraphy features isolates the contribution of the wearable data.
 
 **Approach.** Models are searched on the main set. The selected configuration is then trained on the reference and complementary sets, so that performance differences reflect the information carried by the variables rather than the algorithm. Missing-data strategy and hyperparameters are selected within the inner cross-validation loop to prevent data leakage, and the PCIAT columns that define the target are excluded.
 
@@ -113,8 +117,9 @@ piu-severity-prediction/
 │       ├── __init__.py
 │       ├── config.py         # Centralized paths and settings
 │       ├── data/             # Loading, downloading, and cleaning
-│       ├── features/         # Feature engineering by domain
-│       ├── models/           # Pipelines, training, and evaluation
+│       ├── features/         # Variable groups, feature engineering, and preprocessing
+│       ├── models/           # Model pipelines and ordinal estimators
+│       ├── evaluation/       # Metrics, cross-validation, and model comparisons
 │       └── visualization/    # Reusable plotting functions
 ├── models/                   # Trained model artifacts
 ├── reports/
