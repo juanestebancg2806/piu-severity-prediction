@@ -37,10 +37,12 @@ def test_summarize_actigraphy():
     assert summary["valid_days"] == 1
     assert summary["wear_hours_per_day"] == pytest.approx(9)
     assert summary["enmo_wear_mean"] == pytest.approx(0.02)
+    assert summary["enmo_day_wear_mean"] == pytest.approx(0.02)
 
 
 def test_summarize_actigraphy_too_short():
     assert summarize_actigraphy(_synthetic_series().head(1)) == {}
+    
 
 
 def test_list_and_load_actigraphy(tmp_path):
