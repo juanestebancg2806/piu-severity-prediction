@@ -54,7 +54,7 @@ The objective of this project is to evaluate how well physical activity and fitn
 | Set | Variables |
 | --- | --- |
 | Reference | Demographics (age, sex, enrollment season) |
-| Main | Demographics + physical measures (anthropometrics, vital signs, FitnessGram, bioelectrical impedance, physical activity questionnaire) |
+  | Main | Demographics + physical measures (anthropometrics, vital signs, FitnessGram, bioelectrical impedance, physical activity questionnaire, wrist actigraphy) |
 | Complementary | Main + sleep disturbance, global functioning, and internet use hours |
 
 **Approach.** Models are searched on the main set. The selected configuration is then trained on the reference and complementary sets, so that performance differences reflect the information carried by the variables rather than the algorithm. Missing-data strategy and hyperparameters are selected within the inner cross-validation loop to prevent data leakage, and the PCIAT columns that define the target are excluded.
@@ -76,11 +76,18 @@ Anyone not using uv can generate a `requirements.txt` with:
 uv export --format requirements-txt > requirements.txt
 ```
 
+## Contributing
+
+All team members are collaborators: clone the repository, work on a `feature/*` branch, and open a pull request to `main`. The step-by-step workflow is in [CONTRIBUTING.md](CONTRIBUTING.md). Rules for contributors and AI coding assistants (data privacy, leakage prevention, architecture, and code style) are defined in [AGENTS.md](AGENTS.md); `CLAUDE.md` imports the same file.
+
 ## Project Structure
 
 ```
 piu-severity-prediction/
 ├── README.md                 # Project overview
+├── AGENTS.md                 # Rules for contributors and AI assistants
+├── CLAUDE.md                 # Imports AGENTS.md for Claude Code
+├── CONTRIBUTING.md           # Team Git workflow
 ├── .gitignore
 ├── .python-version           # Python version pinned for uv
 ├── pyproject.toml            # Project metadata and dependencies
