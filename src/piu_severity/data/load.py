@@ -44,7 +44,9 @@ def load_data_dictionary() -> pd.DataFrame:
 def list_actigraphy_ids(series_dir: Path = ACTIGRAPHY_TRAIN_DIR) -> list[str]:
     """Return the ids of the participants that have an actigraphy series."""
     if not series_dir.is_dir():
-        raise FileNotFoundError(f"Actigraphy directory not found: {series_dir}. {_DOWNLOAD_HINT}")
+        raise FileNotFoundError(
+            f"Actigraphy directory not found: {series_dir}. {_DOWNLOAD_HINT}"
+        )
     return sorted(
         path.name.removeprefix(_ID_PREFIX)
         for path in series_dir.iterdir()
@@ -60,5 +62,7 @@ def load_actigraphy(
     """Load the actigraphy series of one participant."""
     path = series_dir / f"{_ID_PREFIX}{participant_id}"
     if not path.is_dir():
-        raise FileNotFoundError(f"No actigraphy series for participant {participant_id!r}.")
+        raise FileNotFoundError(
+            f"No actigraphy series for participant {participant_id!r}."
+        )
     return pd.read_parquet(path, columns=columns)

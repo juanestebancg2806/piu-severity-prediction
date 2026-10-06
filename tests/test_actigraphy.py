@@ -42,7 +42,6 @@ def test_summarize_actigraphy():
 
 def test_summarize_actigraphy_too_short():
     assert summarize_actigraphy(_synthetic_series().head(1)) == {}
-    
 
 
 def test_list_and_load_actigraphy(tmp_path):

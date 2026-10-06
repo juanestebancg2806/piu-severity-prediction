@@ -81,7 +81,9 @@ def test_mask_invalid_values_returns_copy():
     cleaned = mask_invalid_values(data)
     assert np.isnan(cleaned.loc[1, "BIA-BIA_Fat"])
     assert data.loc[1, "BIA-BIA_Fat"] == -5.0
-    assert cleaned["Basic_Demos-Enroll_Season"].equals(data["Basic_Demos-Enroll_Season"])
+    assert cleaned["Basic_Demos-Enroll_Season"].equals(
+        data["Basic_Demos-Enroll_Season"]
+    )
 
 
 def test_cap_protocol_maxima_clips_without_modifying_input():

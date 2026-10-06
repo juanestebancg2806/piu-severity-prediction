@@ -59,13 +59,18 @@ PROTOCOL_MAXIMA: dict[str, float] = {
     "FGC-FGC_TL": 12,
 }
 
-BLOOD_PRESSURE_COLUMNS: tuple[str, str] = ("Physical-Diastolic_BP", "Physical-Systolic_BP")
+BLOOD_PRESSURE_COLUMNS: tuple[str, str] = (
+    "Physical-Diastolic_BP",
+    "Physical-Systolic_BP",
+)
 
 RECORD_LEVEL_PREFIXES: tuple[str, ...] = ("BIA-",)
 SEASON_SUFFIX = "-Season"
 
 
-def invalid_value_mask(data: pd.DataFrame, propagate_records: bool = True) -> pd.DataFrame:
+def invalid_value_mask(
+    data: pd.DataFrame, propagate_records: bool = True
+) -> pd.DataFrame:
     """Return a boolean frame that marks implausible values; missing values are never marked.
 
     With propagate_records, one implausible value of an instrument listed in
@@ -86,7 +91,9 @@ def invalid_value_mask(data: pd.DataFrame, propagate_records: bool = True) -> pd
     if propagate_records:
         for prefix in RECORD_LEVEL_PREFIXES:
             columns = [
-                c for c in data.columns if c.startswith(prefix) and not c.endswith(SEASON_SUFFIX)
+                c
+                for c in data.columns
+                if c.startswith(prefix) and not c.endswith(SEASON_SUFFIX)
             ]
             if columns:
                 corrupted = mask[columns].any(axis="columns")
