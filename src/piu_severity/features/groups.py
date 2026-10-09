@@ -7,6 +7,7 @@ TARGET_COLUMN = "sii"
 TARGET_SOURCE_PREFIX = "PCIAT-"
 ENROLL_SEASON_COLUMN = "Basic_Demos-Enroll_Season"
 SEASON_SUFFIX = "-Season"
+ACTIGRAPHY_INSTRUMENT = "Actigraphy"
 
 INSTRUMENT_GROUPS: dict[str, str] = {
     "Basic_Demos": "demographic",
@@ -28,6 +29,13 @@ FEATURE_SETS: dict[str, tuple[str, ...]] = {
     "main": ("demographic", "physical"),
     "complementary": ("demographic", "physical", "complementary"),
 }
+
+EXPERIMENT_SETS: tuple[str, ...] = (
+    "reference",
+    "main",
+    "main_without_actigraphy",
+    "complementary",
+)
 
 PAQ_SOURCE_COLUMNS: tuple[str, ...] = ("PAQ_A-PAQ_A_Total", "PAQ_C-PAQ_C_Total")
 PAQ_TOTAL_COLUMN = "PAQ-PAQ_Total"
@@ -104,3 +112,24 @@ def model_feature_columns(columns: Iterable[str], feature_set: str) -> list[str]
         for column in feature_set_columns(columns, feature_set)
         if not is_dropped(column)
     ]
+
+
+def drop_instruments(columns: Iterable[str], instruments: Iterable[str]) -> list[str]:
+    """Return the columns that do not belong to the given instruments, keeping order."""
+    excluded = set(instruments)
+    return [column for column in columns if instrument_of(column) not in excluded]
+
+
+def experiment_feature_sets(columns: Iterable[str]) -> dict[str, list[str]]:
+    """Return the predictors of the four feature sets compared in the experiments.
+
+    The main set without actigraphy isolates the contribution of the wearable data.
+    """
+    columns = list(columns)
+    main = model_feature_columns(columns, "main")
+    return {
+        "reference": model_feature_columns(columns, "reference"),
+        "main": main,
+        "main_without_actigraphy": drop_instruments(main, [ACTIGRAPHY_INSTRUMENT]),
+        "complementary": model_feature_columns(columns, "complementary"),
+    }

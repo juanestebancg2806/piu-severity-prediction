@@ -1,10 +1,13 @@
 from piu_severity.features.actigraphy import ACTIGRAPHY_FEATURES
 from piu_severity.features.groups import (
     DROPPED_COLUMNS,
+    EXPERIMENT_SETS,
     INSTRUMENT_GROUPS,
     PAQ_SOURCE_COLUMNS,
     PAQ_TOTAL_COLUMN,
     column_group,
+    drop_instruments,
+    experiment_feature_sets,
     instrument_of,
     is_dropped,
     model_feature_columns,
@@ -69,3 +72,27 @@ def test_model_feature_columns_never_include_target_or_id():
     for feature_set in ("reference", "main", "complementary"):
         columns = model_feature_columns(COLUMNS, feature_set)
         assert not {"id", "sii", "PCIAT-PCIAT_Total"} & set(columns)
+
+
+def test_drop_instruments_keeps_order():
+    assert drop_instruments(COLUMNS[:4], ["Physical"]) == COLUMNS[:3]
+
+
+def test_experiment_feature_sets_are_nested():
+    sets = experiment_feature_sets(COLUMNS)
+    assert tuple(sets) == EXPERIMENT_SETS
+    assert (
+        set(sets["reference"])
+        <= set(sets["main_without_actigraphy"])
+        <= set(sets["main"])
+        <= set(sets["complementary"])
+    )
+
+
+def test_main_without_actigraphy_removes_only_actigraphy():
+    sets = experiment_feature_sets(COLUMNS)
+    removed = set(sets["main"]) - set(sets["main_without_actigraphy"])
+    assert removed == set(ACTIGRAPHY_FEATURES.values())
+    assert sets["main_without_actigraphy"] == [
+        column for column in sets["main"] if column not in removed
+    ]
