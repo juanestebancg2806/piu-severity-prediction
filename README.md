@@ -1,42 +1,42 @@
-# PIU Severity Prediction
+# Predicción de la severidad del PIU
 
-Part of the "Proyecto I de Innovación Tecnológica en Inteligencia Artificial" course, Applied Artificial Intelligence Master, Universidad Icesi, Cali, Colombia.
+Parte del curso "Proyecto I de Innovación Tecnológica en Inteligencia Artificial", Maestría en Inteligencia Artificial Aplicada, Universidad Icesi, Cali, Colombia.
 
-## Project Status
+## Estado del proyecto
 
-Active
+Activo
 
-## Contributing Members
+## Integrantes
 
-**Instructor:** [Milton Orlando Sarria](https://github.com/miltonsarria)
+**Profesor:** [Milton Orlando Sarria](https://github.com/miltonsarria)
 
-| Name |
+| Nombre |
 | --- |
 | Katherin Adriana Camargo Cetina |
 | Juan Esteban Cardona García |
 | Juan David Martínez Legarda |
 | Daniel Velasco López |
 
-## Project Intro/Objective
+## Introducción y objetivo del proyecto
 
-Problematic internet use (PIU) in children and adolescents is associated with depression, anxiety, and sleep disturbances, yet it is often detected late: its assessment depends on specialized clinical evaluations that are costly and not accessible to many families. Physical activity and fitness measurements, in contrast, are easy to obtain and widely collected.
+El uso problemático de internet (PIU, por sus siglas en inglés) en niños y adolescentes se asocia con depresión, ansiedad y alteraciones del sueño; sin embargo, suele detectarse tarde: su evaluación depende de valoraciones clínicas especializadas que son costosas y poco accesibles para muchas familias. En cambio, las mediciones de actividad física y condición física son fáciles de obtener y se recogen ampliamente.
 
-The objective of this project is to evaluate how well physical activity and fitness indicators, together with basic demographic variables, can estimate the severity of PIU, measured by the Severity Impairment Index (SII), in children and adolescents from the Healthy Brain Network, using supervised machine learning. The goal is to determine whether these indicators could serve as the basis for an early and accessible screening tool. The project assesses feasibility; it does not build a diagnostic tool.
+El objetivo de este proyecto es evaluar qué tan bien los indicadores de actividad física y condición física, junto con variables demográficas básicas, permiten estimar la severidad del PIU, medida con el Severity Impairment Index (SII), en niños y adolescentes de la Healthy Brain Network, mediante aprendizaje automático supervisado. Se busca determinar si estos indicadores podrían servir de base para una herramienta de tamizaje temprana y accesible. El proyecto evalúa la viabilidad; no construye una herramienta diagnóstica.
 
-## Methods Used
+## Métodos utilizados
 
-- CRISP-DM process model
-- Exploratory data analysis
-- Leakage-safe preprocessing pipelines: per-instrument missingness indicators, imputation, and Yeo-Johnson transformation fitted within each training fold
-- Ordinal classification: multiclass baseline, Frank and Hall decomposition, and regression with optimized thresholds
-- Regularized logistic regression, random forests, gradient boosting, and support vector machines
-- Nested, repeated, stratified cross-validation
-- Quadratic weighted kappa (QWK), per-level sensitivity, and under-estimation rate
-- Label permutation tests and paired fold-level comparisons with the Nadeau–Bengio corrected t-test
-- Model interpretability with SHAP values
-- Error analysis by sex and age group
+- Modelo de proceso CRISP-DM
+- Análisis exploratorio de datos
+- Pipelines de preprocesamiento sin fuga de información: indicadores de datos faltantes por instrumento, imputación y transformación Yeo-Johnson ajustadas dentro de cada pliegue de entrenamiento
+- Clasificación ordinal: línea base multiclase, descomposición de Frank y Hall, y regresión con umbrales optimizados
+- Regresión logística regularizada, bosques aleatorios, gradient boosting y máquinas de vectores de soporte
+- Validación cruzada anidada, repetida y estratificada
+- Kappa ponderado cuadrático (QWK), sensibilidad por nivel y tasa de subestimación
+- Pruebas de permutación de etiquetas y comparaciones pareadas por pliegue con la prueba t corregida de Nadeau–Bengio
+- Interpretabilidad del modelo con valores SHAP
+- Análisis de errores por sexo y grupo de edad
 
-## Technologies
+## Tecnologías
 
 - Python
 - uv
@@ -45,90 +45,90 @@ The objective of this project is to evaluate how well physical activity and fitn
 - SHAP
 - Matplotlib, seaborn
 
-## Project Description
+## Descripción del proyecto
 
-**Data.** The project uses the [Child Mind Institute — Problematic Internet Use](https://www.kaggle.com/competitions/child-mind-institute-problematic-internet-use) dataset from Kaggle, derived from the Healthy Brain Network. The training set contains 3,960 participants aged 5 to 22; 2,736 of them have an SII label. The data is not redistributed in this repository; see [data/README.md](data/README.md) to obtain it.
+**Datos.** El proyecto usa el conjunto de datos [Child Mind Institute — Problematic Internet Use](https://www.kaggle.com/competitions/child-mind-institute-problematic-internet-use) de Kaggle, derivado de la Healthy Brain Network. El conjunto de entrenamiento contiene 3.960 participantes de 5 a 22 años; 2.736 de ellos tienen etiqueta SII. Los datos no se redistribuyen en este repositorio; consulta [data/README.md](data/README.md) para obtenerlos.
 
-**Target.** The SII is an ordinal variable with four levels (none, mild, moderate, severe), derived from the Parent-Child Internet Addiction Test. The classes are highly imbalanced: only 34 labeled participants fall in the severe level.
+**Variable objetivo.** El SII es una variable ordinal con cuatro niveles (ninguno, leve, moderado, severo), derivada del Parent-Child Internet Addiction Test. Las clases están muy desbalanceadas: solo 34 participantes etiquetados se ubican en el nivel severo.
 
-**Feature sets.** Three nested feature sets are compared on the same participants and cross-validation splits:
+**Conjuntos de variables.** Se comparan tres conjuntos anidados de variables con los mismos participantes y las mismas particiones de validación cruzada:
 
-| Set | Variables |
+| Conjunto | Variables |
 | --- | --- |
-| Reference | Demographics (age, sex, enrollment season) |
-| Main | Demographics + physical measures (anthropometrics, vital signs, FitnessGram, bioelectrical impedance, physical activity questionnaire, wrist actigraphy) |
-| Complementary | Main + sleep disturbance, global functioning, and internet use hours |
+| Referencia | Demográficas (edad, sexo, temporada de inscripción) |
+| Principal | Demográficas + medidas físicas (antropometría, signos vitales, FitnessGram, impedancia bioeléctrica, cuestionario de actividad física, actigrafía de muñeca) |
+| Complementario | Principal + alteraciones del sueño, funcionamiento global y horas de uso de internet |
 
-An ablation of the main set without the actigraphy features isolates the contribution of the wearable data.
+Una ablación del conjunto principal sin las variables de actigrafía aísla el aporte de los datos del dispositivo portátil.
 
-**Approach.** Models are searched on the main set. The selected configuration is then trained on the reference and complementary sets, so that performance differences reflect the information carried by the variables rather than the algorithm. Missing-data strategy and hyperparameters are selected within the inner cross-validation loop to prevent data leakage, and the PCIAT columns that define the target are excluded.
+**Enfoque.** La búsqueda de modelos se hace sobre el conjunto principal. Luego, la configuración seleccionada se entrena con los conjuntos de referencia y complementario, de modo que las diferencias de desempeño reflejen la información que aportan las variables y no el algoritmo. La estrategia de datos faltantes y los hiperparámetros se seleccionan dentro del ciclo interno de la validación cruzada para evitar fuga de información, y se excluyen las columnas PCIAT que definen la variable objetivo.
 
-**Evaluation.** Because QWK is symmetric, it is complemented with per-level sensitivity and the rate at which moderate and severe cases are under-estimated, which is the most costly error in a screening context.
+**Evaluación.** Como el QWK es simétrico, se complementa con la sensibilidad por nivel y con la tasa de subestimación de los casos moderados y severos, que es el error más costoso en un contexto de tamizaje.
 
-**Scope and ethics.** The data comes from minors in a clinical, non-representative sample from the New York area, and the target relies on parent report. Results are intended for academic analysis only and do not constitute a diagnostic tool.
+**Alcance y ética.** Los datos provienen de menores de edad en una muestra clínica, no representativa, del área de Nueva York, y la variable objetivo se basa en el reporte de los padres. Los resultados tienen fines exclusivamente académicos y no constituyen una herramienta diagnóstica.
 
-## Getting Started
+## Primeros pasos
 
-1. Clone the repository.
-2. Install [uv](https://docs.astral.sh/uv/).
-3. Run `uv sync`. This installs dependencies and the `piu_severity` package in editable mode.
-4. Obtain the data as described in [data/README.md](data/README.md).
+1. Clona el repositorio.
+2. Instala [uv](https://docs.astral.sh/uv/).
+3. Ejecuta `uv sync`. Esto instala las dependencias y el paquete `piu_severity` en modo editable.
+4. Obtén los datos como se describe en [data/README.md](data/README.md).
 
-Anyone not using uv can generate a `requirements.txt` with:
+Quien no use uv puede generar un `requirements.txt` con:
 
 ```bash
 uv export --format requirements-txt > requirements.txt
 ```
 
-## Contributing
+## Cómo contribuir
 
-All team members are collaborators: clone the repository, work on a `feature/*` branch, and open a pull request to `main`. The step-by-step workflow is in [CONTRIBUTING.md](CONTRIBUTING.md). Rules for contributors and AI coding assistants (data privacy, leakage prevention, architecture, and code style) are defined in [AGENTS.md](AGENTS.md); `CLAUDE.md` imports the same file.
+Todos los integrantes del equipo son colaboradores: clonen el repositorio, trabajen en una rama `feature/*` y abran un pull request hacia `main`. El flujo de trabajo paso a paso está en [CONTRIBUTING.md](CONTRIBUTING.md). Las reglas para colaboradores y asistentes de programación con IA (privacidad de datos, prevención de fuga de información, arquitectura y estilo de código) están definidas en [AGENTS.md](AGENTS.md); `CLAUDE.md` importa ese mismo archivo.
 
-## Project Structure
+## Estructura del proyecto
 
 ```
 piu-severity-prediction/
-├── README.md                 # Project overview
-├── AGENTS.md                 # Rules for contributors and AI assistants
-├── CLAUDE.md                 # Imports AGENTS.md for Claude Code
-├── CONTRIBUTING.md           # Team Git workflow
+├── README.md                 # Descripción general del proyecto
+├── AGENTS.md                 # Reglas para colaboradores y asistentes de IA
+├── CLAUDE.md                 # Importa AGENTS.md para Claude Code
+├── CONTRIBUTING.md           # Flujo de trabajo en Git del equipo
 ├── .gitignore
-├── .python-version           # Python version pinned for uv
-├── pyproject.toml            # Project metadata and dependencies
-├── uv.lock                   # Locked dependency versions (reproducibility)
-├── LICENSE                   # MIT license (code only; data has its own Kaggle license)
-├── deliverables/             # Documents submitted for each course milestone
+├── .python-version           # Versión de Python fijada para uv
+├── pyproject.toml            # Metadatos y dependencias del proyecto
+├── uv.lock                   # Versiones exactas de las dependencias (reproducibilidad)
+├── LICENSE                   # Licencia MIT (solo el código; los datos tienen su propia licencia de Kaggle)
+├── deliverables/             # Documentos entregados en cada hito del curso
 │   ├── README.md
-│   ├── deliverable-1/        # Milestone 1 documents
-│   ├── deliverable-2/        # Milestone 2 documents
-│   └── deliverable-3/        # Milestone 3 documents
-├── docs/                     # Cross-cutting technical documentation
+│   ├── deliverable-1/        # Documentos del hito 1
+│   ├── deliverable-2/        # Documentos del hito 2
+│   └── deliverable-3/        # Documentos del hito 3
+├── docs/                     # Documentación técnica transversal
 │   └── README.md
-├── references/               # Bibliography and source materials
-├── data/                     # Local datasets (not versioned)
+├── references/               # Bibliografía y material de consulta
+├── data/                     # Datos locales (no versionados)
 │   ├── README.md
-│   ├── raw/                  # Immutable original data
-│   ├── interim/              # Intermediate transformations
-│   └── processed/            # Final datasets ready for modeling
-├── notebooks/                # Exploration and narrative
+│   ├── raw/                  # Datos originales inmutables
+│   ├── interim/              # Transformaciones intermedias
+│   └── processed/            # Datos finales listos para modelar
+├── notebooks/                # Exploración y narrativa
 │   └── README.md
 ├── src/
-│   └── piu_severity/         # Installable package
+│   └── piu_severity/         # Paquete instalable
 │       ├── __init__.py
-│       ├── config.py         # Centralized paths and settings
-│       ├── data/             # Loading, downloading, and cleaning
-│       ├── features/         # Variable groups, feature engineering, and preprocessing
-│       ├── models/           # Model pipelines and ordinal estimators
-│       ├── evaluation/       # Metrics, cross-validation, and model comparisons
-│       └── visualization/    # Reusable plotting functions
-├── models/                   # Trained model artifacts
+│       ├── config.py         # Rutas y configuración centralizadas
+│       ├── data/             # Carga, descarga y limpieza
+│       ├── features/         # Grupos de variables, ingeniería de variables y preprocesamiento
+│       ├── models/           # Pipelines de modelos y estimadores ordinales
+│       ├── evaluation/       # Métricas, validación cruzada y comparación de modelos
+│       └── visualization/    # Funciones de graficación reutilizables
+├── models/                   # Modelos entrenados
 ├── reports/
-│   └── figures/              # Generated figures
-└── tests/                    # Automated tests
+│   └── figures/              # Figuras generadas
+└── tests/                    # Pruebas automatizadas
 ```
 
-## Featured Deliverables
+## Entregables destacados
 
-- [Deliverable 1](deliverables/deliverable-1/) — Project formulation: problem analysis, state of the art, problem tree, objectives, proposed methodology, and semester plan (October 19, 2026).
-- [Deliverable 2](deliverables/deliverable-2/) — Data understanding and initial experiments: exploratory data analysis, data treatment, validation pipeline, baseline model, and initial hypothesis tests (November 14, 2026, planned).
-- [Deliverable 3](deliverables/deliverable-3/) — Final report, video, and oral presentation: modeling, evaluation, interpretability, and feasibility recommendations (December 1, 2026, planned).
+- [Entregable 1](deliverables/deliverable-1/) — Formulación del proyecto: análisis del problema, estado del arte, árbol de problemas, objetivos, metodología propuesta y plan del semestre (19 de octubre de 2026).
+- [Entregable 2](deliverables/deliverable-2/) — Comprensión de los datos y experimentos iniciales: análisis exploratorio, tratamiento de los datos, pipeline de validación, modelo de línea base y pruebas de hipótesis iniciales (14 de noviembre de 2026, planeado).
+- [Entregable 3](deliverables/deliverable-3/) — Informe final, video y presentación oral: modelado, evaluación, interpretabilidad y recomendaciones de viabilidad (1 de diciembre de 2026, planeado).
