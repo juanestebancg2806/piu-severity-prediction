@@ -13,7 +13,6 @@ from sklearn.model_selection import StratifiedKFold
 
 from piu_severity.config import RANDOM_SEED
 from piu_severity.evaluation.metrics import (
-    SEVERE_LEVELS,
     SII_LEVELS,
     as_levels,
     level_confusion_matrix,
@@ -134,8 +133,8 @@ def run_nested_cv(
 def summarize_by_repeat(folds: pd.DataFrame, predictions: pd.DataFrame) -> pd.DataFrame:
     """Return one row of metrics per repeat.
 
-    The QWK is the mean of the fold values of the repeat. Per-level sensitivity and
-    under-estimation rates are computed on the pooled out-of-fold predictions of
+    The QWK is the mean of the fold values of the repeat. Per-level recall and
+    under-estimation rate are computed on the pooled out-of-fold predictions of
     the repeat, where every participant is predicted exactly once.
     """
     rows = []
@@ -148,9 +147,6 @@ def summarize_by_repeat(folds: pd.DataFrame, predictions: pd.DataFrame) -> pd.Da
                 **{f"recall_{level}": float(value) for level, value in recall.items()},
                 "underestimation": underestimation_rate(
                     group["y_true"], group["y_pred"]
-                ),
-                "underestimation_severe": underestimation_rate(
-                    group["y_true"], group["y_pred"], SEVERE_LEVELS
                 ),
             }
         )
@@ -168,7 +164,7 @@ def mean_confusion_matrix(
     """Return the confusion matrix averaged across repeats.
 
     With normalize, each row is divided by its total, so the diagonal holds the
-    per-level sensitivity.
+    per-level recall.
     """
     matrices = [
         level_confusion_matrix(group["y_true"], group["y_pred"])

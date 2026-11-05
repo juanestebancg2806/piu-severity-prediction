@@ -4,15 +4,14 @@ import pytest
 from sklearn.dummy import DummyClassifier
 
 from piu_severity.evaluation.metrics import (
-    SEVERE_LEVELS,
     SII_LEVELS,
     as_levels,
     level_confusion_matrix,
     quadratic_weighted_kappa,
     qwk_scorer,
     recall_by_level,
-    severity_metrics,
     underestimation_rate,
+    wilson_interval,
 )
 
 
@@ -67,26 +66,35 @@ def test_underestimation_counts_only_lower_predictions():
     y_true = [2, 2, 2, 3, 3, 1]
     y_pred = [2, 1, 3, 3, 0, 0]
     assert underestimation_rate(y_true, y_pred) == pytest.approx(2 / 5)
-    assert underestimation_rate(y_true, y_pred, SEVERE_LEVELS) == pytest.approx(0.5)
+    assert underestimation_rate(y_true, y_pred, (3,)) == pytest.approx(0.5)
 
 
 def test_underestimation_is_nan_without_cases():
     assert np.isnan(underestimation_rate([0, 1, 1], [0, 0, 1]))
 
 
-def test_severity_metrics_keys():
-    metrics = severity_metrics([0, 1, 2, 3], [0, 1, 3, 3])
-    assert set(metrics) == {
-        "qwk",
-        "recall_0",
-        "recall_1",
-        "recall_2",
-        "recall_3",
-        "underestimation",
-        "underestimation_severe",
-    }
-    assert metrics["qwk"] == pytest.approx(11 / 12)
-    assert metrics["underestimation"] == pytest.approx(0.0)
+def test_wilson_interval_reference_value():
+    # Wilson (1927) interval for 20 successes in 34 cases at 95 % confidence.
+    low, high = wilson_interval(20 / 34, 34)
+    assert low == pytest.approx(0.4222, abs=1e-4)
+    assert high == pytest.approx(0.7363, abs=1e-4)
+
+
+def test_wilson_interval_stays_within_unit_interval():
+    low, high = wilson_interval(0.0, 34)
+    assert low == 0.0
+    assert 0.0 < high < 1.0
+    low, high = wilson_interval(1.0, 34)
+    assert 0.0 < low < 1.0
+    assert high == pytest.approx(1.0)
+    assert high <= 1.0
+
+
+def test_wilson_interval_rejects_invalid_inputs():
+    with pytest.raises(ValueError):
+        wilson_interval(0.5, 0)
+    with pytest.raises(ValueError):
+        wilson_interval(1.2, 10)
 
 
 def test_qwk_scorer_with_majority_classifier():

@@ -87,7 +87,7 @@ def test_run_nested_cv_with_informative_feature():
     assert folds["qwk"].mean() > 0.8
 
 
-def test_mean_confusion_matrix_rows_are_sensitivities():
+def test_mean_confusion_matrix_rows_are_recalls():
     y = _labels()
     X = _features(y, noise=0.5)
     splits = outer_splits(y, n_splits=5, n_repeats=2)

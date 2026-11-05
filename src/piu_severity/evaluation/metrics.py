@@ -1,13 +1,13 @@
-"""Metrics for the ordinal SII target: agreement, per-level sensitivity and under-estimation."""
+"""Metrics for the ordinal SII target: agreement, per-level recall and under-estimation."""
 
 import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
+from scipy.stats import norm
 from sklearn.metrics import cohen_kappa_score, confusion_matrix, make_scorer
 
 SII_LEVELS: tuple[int, ...] = (0, 1, 2, 3)
 UNDERESTIMATION_LEVELS: tuple[int, ...] = (2, 3)
-SEVERE_LEVELS: tuple[int, ...] = (3,)
 
 
 def as_levels(values: ArrayLike) -> np.ndarray:
@@ -47,7 +47,7 @@ def level_confusion_matrix(
 def recall_by_level(
     y_true: ArrayLike, y_pred: ArrayLike, levels: tuple[int, ...] = SII_LEVELS
 ) -> pd.Series:
-    """Return the sensitivity of each level; NaN for levels absent from y_true."""
+    """Return the recall of each level; NaN for levels absent from y_true."""
     matrix = level_confusion_matrix(y_true, y_pred, levels).to_numpy()
     support = matrix.sum(axis=1)
     hits = np.diag(matrix)
@@ -73,15 +73,26 @@ def underestimation_rate(
     return float(np.mean(pred[selected] < true[selected]))
 
 
-def severity_metrics(y_true: ArrayLike, y_pred: ArrayLike) -> dict[str, float]:
-    """Return QWK, per-level sensitivity and under-estimation rates as a flat dict."""
-    recall = recall_by_level(y_true, y_pred)
-    return {
-        "qwk": quadratic_weighted_kappa(y_true, y_pred),
-        **{f"recall_{level}": float(value) for level, value in recall.items()},
-        "underestimation": underestimation_rate(y_true, y_pred),
-        "underestimation_severe": underestimation_rate(y_true, y_pred, SEVERE_LEVELS),
-    }
+def wilson_interval(
+    proportion: float, n: int, confidence: float = 0.95
+) -> tuple[float, float]:
+    """Return the Wilson score interval of a proportion estimated from n cases.
+
+    Unlike the normal (Wald) interval, its limits stay within [0, 1] and its
+    coverage holds with small samples and proportions close to 0 or 1.
+    """
+    if n <= 0:
+        raise ValueError("n must be positive.")
+    if not 0 <= proportion <= 1:
+        raise ValueError("proportion must lie in [0, 1].")
+    z = norm.ppf(1 - (1 - confidence) / 2)
+    denominator = 1 + z**2 / n
+    center = (proportion + z**2 / (2 * n)) / denominator
+    margin = (z / denominator) * np.sqrt(
+        proportion * (1 - proportion) / n + z**2 / (4 * n**2)
+    )
+    # Clip rounding error so that the limits never leave [0, 1].
+    return float(max(center - margin, 0.0)), float(min(center + margin, 1.0))
 
 
 qwk_scorer = make_scorer(quadratic_weighted_kappa)

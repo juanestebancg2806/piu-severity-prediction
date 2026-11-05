@@ -42,7 +42,11 @@ def make_logistic_search(
         ]
     )
     return GridSearchCV(
-        pipeline, LOGISTIC_GRID, scoring=qwk_scorer, cv=inner_cv(seed=seed), n_jobs=n_jobs
+        pipeline,
+        LOGISTIC_GRID,
+        scoring=qwk_scorer,
+        cv=inner_cv(seed=seed),
+        n_jobs=n_jobs,
     )
 
 
@@ -70,5 +74,9 @@ def make_boosting_search(
         ]
     )
     return GridSearchCV(
-        pipeline, BOOSTING_GRID, scoring=qwk_scorer, cv=inner_cv(seed=seed), n_jobs=n_jobs
+        pipeline,
+        BOOSTING_GRID,
+        scoring=qwk_scorer,
+        cv=inner_cv(seed=seed),
+        n_jobs=n_jobs,
     )
