@@ -20,7 +20,7 @@ Prediction of PIU severity (SII, ordinal 0–3) from physical and demographic da
 - All model comparisons use the same participants and the same cross-validation splits.
 
 ## Architecture
-- `src/piu_severity/`: reusable code. `data/` loading and cleaning, `features/` variable groups and feature engineering, `models/` pipelines, training, and evaluation, `visualization/` reusable plots.
+- `src/piu_severity/`: reusable code. `data/` loading and cleaning, `features/` variable groups, feature engineering, and preprocessing, `models/` model pipelines and ordinal estimators, `evaluation/` metrics, cross-validation, and model comparison, `visualization/` reusable plots.
 - `notebooks/`: narrative and exploration only. When a function is used twice, move it to `src/`.
 - `data/raw/` is immutable. Write intermediate data to `data/interim/` and model-ready data to `data/processed/`.
 - Save report figures to a subfolder named after the notebook stem, `reports/figures/<notebook_stem>/` (for example, `FIGURES_DIR / "01_eda"`), so figures from different notebooks do not mix.

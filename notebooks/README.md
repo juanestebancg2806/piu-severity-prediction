@@ -5,7 +5,7 @@ Naming convention: `NN_short_description.ipynb`, with a two-digit prefix that se
 | Notebook | Content |
 | --- | --- |
 | `01_eda.ipynb` | Exploratory data analysis and analytic dataset |
-| `02_modelo_referencia.ipynb` | Validation scheme, baseline models, and initial hypothesis tests |
+| `02_experimentos_iniciales.ipynb` | Validation scheme, baseline models, and initial hypothesis tests |
 
 Notebooks are for exploration and narrative. Reusable logic must be moved to `src/piu_severity/` and imported (`from piu_severity.features import ...`). Do not modify `sys.path` to import project code: `uv sync` installs the package in editable mode.
 

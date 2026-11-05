@@ -31,7 +31,7 @@ El objetivo de este proyecto es evaluar qué tan bien los indicadores de activid
 - Clasificación ordinal: línea base multiclase, descomposición de Frank y Hall, y regresión con umbrales optimizados
 - Regresión logística regularizada, bosques aleatorios, gradient boosting y máquinas de vectores de soporte
 - Validación cruzada anidada, repetida y estratificada
-- Kappa ponderado cuadrático (QWK), sensibilidad por nivel y tasa de subestimación
+- Kappa ponderado cuadrático (QWK), recall por nivel y tasa de subestimación
 - Pruebas de permutación de etiquetas y comparaciones pareadas por pliegue con la prueba t corregida de Nadeau–Bengio
 - Interpretabilidad del modelo con valores SHAP
 - Análisis de errores por sexo y grupo de edad
@@ -63,7 +63,7 @@ Una ablación del conjunto principal sin las variables de actigrafía aísla el 
 
 **Enfoque.** La búsqueda de modelos se hace sobre el conjunto principal. Luego, la configuración seleccionada se entrena con los conjuntos de referencia y complementario, de modo que las diferencias de desempeño reflejen la información que aportan las variables y no el algoritmo. La estrategia de datos faltantes y los hiperparámetros se seleccionan dentro del ciclo interno de la validación cruzada para evitar fuga de información, y se excluyen las columnas PCIAT que definen la variable objetivo.
 
-**Evaluación.** Como el QWK es simétrico, se complementa con la sensibilidad por nivel y con la tasa de subestimación de los casos moderados y severos, que es el error más costoso en un contexto de tamizaje.
+**Evaluación.** Como el QWK es simétrico, se complementa con el recall por nivel y con la tasa de subestimación de los casos moderados y severos, que es el error más costoso en un contexto de tamizaje.
 
 **Alcance y ética.** Los datos provienen de menores de edad en una muestra clínica, no representativa, del área de Nueva York, y la variable objetivo se basa en el reporte de los padres. Los resultados tienen fines exclusivamente académicos y no constituyen una herramienta diagnóstica.
 
