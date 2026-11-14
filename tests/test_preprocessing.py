@@ -126,6 +126,10 @@ def test_unsupported_combination_raises():
 
 REFERENCE_FILE = Path(__file__).parent / "fixtures" / "preprocessing_reference.npz"
 NEW_COMBINATIONS = [("linear", "iterative"), ("tree", "simple"), ("tree", "iterative")]
+# Yeo-Johnson estimates its lambda with a numerical optimizer whose last digits
+# differ across platforms (for example, macOS ARM and Linux x86), by about 1e-8.
+# Any change in the preprocessing logic produces differences of 1e-2 or more.
+REFERENCE_TOLERANCE = 1e-6
 
 
 def _reference() -> tuple[np.lib.npyio.NpzFile, pd.DataFrame, int]:
@@ -153,10 +157,17 @@ def test_original_strategies_reproduce_the_frozen_outputs(family, strategy):
         columns=list(stored[f"{family}_{strategy}_columns"]),
         index=output.index,
     )
+    # Columns, their order and their types must match exactly.
     assert [str(t) for t in output.dtypes] == list(
         stored[f"{family}_{strategy}_dtypes"]
     )
-    pd.testing.assert_frame_equal(output.astype(float), expected, check_exact=True)
+    pd.testing.assert_frame_equal(
+        output.astype(float),
+        expected,
+        check_exact=False,
+        rtol=REFERENCE_TOLERANCE,
+        atol=REFERENCE_TOLERANCE,
+    )
 
 
 @pytest.mark.parametrize(("family", "strategy"), NEW_COMBINATIONS)
