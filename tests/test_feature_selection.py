@@ -5,6 +5,7 @@ from piu_severity.features.groups import (
     INSTRUMENT_GROUPS,
     PAQ_SOURCE_COLUMNS,
     PAQ_TOTAL_COLUMN,
+    actigraphy_subset_feature_sets,
     column_group,
     drop_instruments,
     experiment_feature_sets,
@@ -96,3 +97,27 @@ def test_main_without_actigraphy_removes_only_actigraphy():
     assert sets["main_without_actigraphy"] == [
         column for column in sets["main"] if column not in removed
     ]
+
+
+def test_experiment_feature_sets_keep_their_four_sets():
+    # Notebook 02 names exactly these four sets; new sets live elsewhere.
+    assert tuple(experiment_feature_sets(COLUMNS)) == EXPERIMENT_SETS
+    assert len(EXPERIMENT_SETS) == 4
+
+
+def test_actigraphy_subset_sets_isolate_the_actigraphy_features():
+    sets = actigraphy_subset_feature_sets(COLUMNS)
+    experiment = experiment_feature_sets(COLUMNS)
+    assert tuple(sets) == (
+        "reference",
+        "reference_with_actigraphy",
+        "main_without_actigraphy",
+        "main",
+    )
+    for name in ("reference", "main_without_actigraphy", "main"):
+        assert sets[name] == experiment[name]
+    added = sets["reference_with_actigraphy"][len(sets["reference"]) :]
+    assert (
+        sets["reference_with_actigraphy"][: len(sets["reference"])] == sets["reference"]
+    )
+    assert added == list(ACTIGRAPHY_FEATURES.values())
