@@ -217,9 +217,7 @@ def test_iterative_imputation_never_modifies_observed_cells():
 
 def test_iterative_linear_standardizes_numeric_and_ordinal_predictors():
     _, data, _ = _reference()
-    output = build_preprocessor(data.columns, "linear", "iterative").fit_transform(
-        data
-    )
+    output = build_preprocessor(data.columns, "linear", "iterative").fit_transform(data)
     for column in ["Physical-Height", "FGC-FGC_GSND_Zone"]:
         assert output[column].mean() == pytest.approx(0.0, abs=1e-8)
         assert output[column].std(ddof=0) == pytest.approx(1.0, abs=1e-8)
@@ -254,9 +252,7 @@ def test_new_strategies_use_training_parameters_only(family, strategy):
 def test_iterative_imputation_is_deterministic():
     _, data, _ = _reference()
     first = build_preprocessor(data.columns, "linear", "iterative").fit_transform(data)
-    second = build_preprocessor(data.columns, "linear", "iterative").fit_transform(
-        data
-    )
+    second = build_preprocessor(data.columns, "linear", "iterative").fit_transform(data)
     pd.testing.assert_frame_equal(first, second)
 
 
