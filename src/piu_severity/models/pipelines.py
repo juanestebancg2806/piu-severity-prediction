@@ -8,6 +8,7 @@ search is run.
 """
 
 import math
+import os
 from collections.abc import Iterable, Mapping
 
 from sklearn.base import BaseEstimator
@@ -178,17 +179,14 @@ CUT_BOOSTING_RANDOM_CANDIDATES = 40
 SEARCH_BUDGET_HOURS = 10.0
 N_FOLDS_FULL_SEARCH = 25
 
-# Parallel workers per algorithm (outer folds run in parallel, inner searches
-# sequentially). Random forests hold many deep trees in memory, so they get
-# fewer workers; the memory rule can only lower these numbers.
-N_WORKERS_BY_ALGORITHM: dict[str, int] = {
-    "linear": 12,
-    "svm": 12,
-    "random_forest": 4,
-    "gradient_boosting": 12,
-}
+# Parallel workers adapt to the machine: every core but RESERVED_CORES runs one
+# outer fold (inner searches stay sequential), except for random forests, which
+# hold many deep trees in memory and get one worker per FOREST_CORES_PER_WORKER
+# cores. The memory rule can only lower these numbers. The number of workers
+# changes the running time, never the results.
 RESERVED_CORES = 2
-MEMORY_BUDGET_GB = 18.0
+FOREST_CORES_PER_WORKER = 3
+MEMORY_BUDGET_FRACTION = 0.75
 MEMORY_SAFETY_FACTOR = 1.25
 
 # Convergence rule: a configuration whose model warns in more than this share of
@@ -390,14 +388,29 @@ def complexity_key(algorithm: str, formulation: str, strategy: str) -> tuple[int
 
 
 def available_workers(algorithm: str, cpu_count: int) -> int:
-    """Return the workers of an algorithm, leaving RESERVED_CORES cores free."""
-    return max(1, min(N_WORKERS_BY_ALGORITHM[algorithm], cpu_count - RESERVED_CORES))
+    """Return the workers of an algorithm on a machine with cpu_count cores."""
+    usable = max(1, cpu_count - RESERVED_CORES)
+    if algorithm == "random_forest":
+        return max(1, usable // FOREST_CORES_PER_WORKER)
+    return usable
 
 
-def workers_within_memory(workers: int, peak_mb_per_worker: float) -> int:
-    """Lower the workers so their projected peak memory fits MEMORY_BUDGET_GB."""
+def total_memory_gb() -> float:
+    """Return the physical memory of this machine, in gigabytes."""
+    return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024**3
+
+
+def memory_budget_gb(total_gb: float) -> float:
+    """Return the memory the parallel workers may use: a share of the total."""
+    return MEMORY_BUDGET_FRACTION * total_gb
+
+
+def workers_within_memory(
+    workers: int, peak_mb_per_worker: float, total_gb: float
+) -> int:
+    """Lower the workers so their projected peak memory fits the memory budget."""
     per_worker = peak_mb_per_worker * MEMORY_SAFETY_FACTOR
-    allowed = math.floor(MEMORY_BUDGET_GB * 1024 / per_worker)
+    allowed = math.floor(memory_budget_gb(total_gb) * 1024 / per_worker)
     return max(1, min(workers, allowed))
 
 

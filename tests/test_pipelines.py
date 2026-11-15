@@ -16,7 +16,7 @@ from piu_severity.models.pipelines import (
     FORMULATIONS,
     LOGISTIC_GRID,
     MAX_ITER_INCREASE,
-    MEMORY_BUDGET_GB,
+    MEMORY_BUDGET_FRACTION,
     MEMORY_SAFETY_FACTOR,
     available_workers,
     choose_cut_level,
@@ -26,11 +26,13 @@ from piu_severity.models.pipelines import (
     make_logistic_search,
     make_search,
     max_iter_factor_for,
+    memory_budget_gb,
     model_grid,
     n_candidates,
     n_forest_trees,
     project_search_hours,
     search_grid,
+    total_memory_gb,
     uses_random_search,
     weight_powers,
     workers_within_memory,
@@ -269,19 +271,31 @@ def test_pipeline_memory_reuses_the_preprocessing_across_candidates(
     assert np.array_equal(predictions[True], predictions[False])
 
 
-def test_available_workers_leave_cores_free():
-    assert available_workers("linear", 15) == 12
-    assert available_workers("linear", 8) == 6
+def test_available_workers_adapt_to_the_machine():
+    assert available_workers("linear", 15) == 13
+    assert available_workers("svm", 8) == 6
+    assert available_workers("gradient_boosting", 32) == 30
     assert available_workers("random_forest", 15) == 4
-    assert available_workers("svm", 2) == 1
+    assert available_workers("random_forest", 32) == 10
+    assert available_workers("random_forest", 4) == 1
+    assert available_workers("linear", 2) == 1
+
+
+def test_memory_budget_is_a_share_of_the_machine_memory():
+    assert memory_budget_gb(24.0) == pytest.approx(MEMORY_BUDGET_FRACTION * 24.0)
+    assert total_memory_gb() > 0
 
 
 def test_memory_rule_lowers_workers_only_when_needed():
-    budget_mb = MEMORY_BUDGET_GB * 1024
-    assert workers_within_memory(12, peak_mb_per_worker=500) == 12
+    budget_mb = memory_budget_gb(24.0) * 1024
+    assert workers_within_memory(12, peak_mb_per_worker=500, total_gb=24.0) == 12
     peak = budget_mb / (4 * MEMORY_SAFETY_FACTOR)
-    assert workers_within_memory(12, peak_mb_per_worker=peak) == 4
-    assert workers_within_memory(12, peak_mb_per_worker=10 * budget_mb) == 1
+    assert workers_within_memory(12, peak_mb_per_worker=peak, total_gb=24.0) == 4
+    assert (
+        workers_within_memory(12, peak_mb_per_worker=10 * budget_mb, total_gb=24.0) == 1
+    )
+    # The same peak fits more workers on a machine with more memory.
+    assert workers_within_memory(12, peak_mb_per_worker=peak, total_gb=48.0) == 8
 
 
 def test_convergence_rule():
