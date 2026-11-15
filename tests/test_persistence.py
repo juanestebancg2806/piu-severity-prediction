@@ -1,7 +1,10 @@
+import os
+import sys
 import warnings
 from pathlib import Path
 from typing import ClassVar
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,11 +15,13 @@ from sklearn.pipeline import Pipeline
 from piu_severity.evaluation import persistence
 from piu_severity.evaluation.persistence import (
     CacheWarning,
+    EvaluationTask,
     clear_pipeline_memory,
     directory_size,
     evaluation_fields,
     fingerprint_frame,
     load_or_compute,
+    run_configurations_cached,
     run_nested_cv_cached,
     signature_hash,
 )
@@ -417,3 +422,131 @@ def test_clear_pipeline_memory_never_touches_the_results_cache(tmp_path):
     with pytest.raises(ValueError):
         clear_pipeline_memory(results)
     clear_pipeline_memory(memory)
+
+
+# Classes defined in this module are sent to the workers by value, so the
+# parallel tests can use them although the tests folder is not a package.
+cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+
+class FailOnFoldClassifier(CountingClassifier):
+    """Raise when row 0 is not in the training data: exactly one fold per repeat."""
+
+    attempts: ClassVar[list] = []
+
+    def fit(self, X, y):
+        FailOnFoldClassifier.attempts.append(len(y))
+        if 0 not in X.index:
+            raise ValueError("deliberate failure")
+        return super().fit(X, y)
+
+
+class CrashOnceClassifier(CountingClassifier):
+    """Kill its worker the first time it fits, then behave normally."""
+
+    def __init__(self, offset: float = 0.0, marker: str = ""):
+        super().__init__(offset)
+        self.marker = marker
+
+    def fit(self, X, y):
+        marker = Path(self.marker)
+        if not marker.exists():
+            marker.write_text("crashed")
+            os._exit(1)
+        return super().fit(X, y)
+
+
+class AlwaysCrashClassifier(CountingClassifier):
+    """Kill its worker on every fit."""
+
+    def fit(self, X, y):
+        os._exit(1)
+
+
+def _task(name, estimator, X=None, y=None, splits=None, keep_estimators=False):
+    """Return an evaluation task with the default data and five splits."""
+    default_X, default_y = _data()
+    X = default_X if X is None else X
+    y = default_y if y is None else y
+    splits = outer_splits(y, n_splits=5, n_repeats=1) if splits is None else splits
+    fields = evaluation_fields(
+        estimator, X, y, config={"name": name}, evaluation="search", n_repeats=1
+    )
+    return EvaluationTask(name, estimator, X, y, splits, fields, keep_estimators)
+
+
+def test_pooled_tasks_match_separate_runs(tmp_path):
+    tasks = [
+        _task("logistic", LogisticRegression(max_iter=1_000)),
+        _task("shifted", CountingClassifier(offset=0.2)),
+    ]
+    pooled = run_configurations_cached(tasks, cache_dir=tmp_path / "pooled", n_jobs=2)
+    assert set(pooled) == {"logistic", "shifted"}
+    for task in tasks:
+        separate = run_nested_cv_cached(
+            task.estimator,
+            task.X,
+            task.y,
+            task.splits,
+            name=task.name,
+            cache_dir=tmp_path / "separate",
+            fields=task.fields,
+        )
+        pd.testing.assert_frame_equal(
+            _comparable(pooled[task.name].folds), _comparable(separate.folds)
+        )
+        pd.testing.assert_frame_equal(
+            pooled[task.name].predictions, separate.predictions
+        )
+
+
+def test_pooled_tasks_load_their_folds_on_a_second_call(tmp_path):
+    tasks = [
+        _task("first", CountingClassifier()),
+        _task("second", CountingClassifier(offset=0.1)),
+    ]
+    run_configurations_cached(tasks, cache_dir=tmp_path)
+    CountingClassifier.fits = []
+    again = run_configurations_cached(tasks, cache_dir=tmp_path)
+    assert len(CountingClassifier.fits) == 0
+    assert all(result.counts()["loaded"] == 5 for result in again.values())
+
+
+def test_task_names_must_be_unique(tmp_path):
+    tasks = [_task("same", CountingClassifier()), _task("same", CountingClassifier())]
+    with pytest.raises(ValueError, match="unique"):
+        run_configurations_cached(tasks, cache_dir=tmp_path)
+
+
+def test_a_failing_fold_does_not_stop_the_others(tmp_path):
+    task = _task("failing", FailOnFoldClassifier())
+    with pytest.raises(RuntimeError, match="1 folds failed"):
+        run_configurations_cached([task], cache_dir=tmp_path)
+    assert len(list(tmp_path.glob("failing_*.joblib"))) == 4
+    FailOnFoldClassifier.attempts = []
+    with pytest.raises(RuntimeError, match="deliberate failure"):
+        run_configurations_cached([task], cache_dir=tmp_path)
+    # Only the failing fold is attempted again; the other four are loaded.
+    assert len(FailOnFoldClassifier.attempts) == 1
+
+
+def test_a_dead_worker_is_recovered_with_fewer_workers(tmp_path):
+    marker = tmp_path / "crashed.txt"
+    task = _task("crash", CrashOnceClassifier(marker=str(marker)))
+    with pytest.warns(CacheWarning, match="worker died"):
+        results = run_configurations_cached(
+            [task], cache_dir=tmp_path / "cache", n_jobs=2
+        )
+    assert marker.exists()
+    assert len(results["crash"].folds) == 5
+    assert len(list((tmp_path / "cache").glob("crash_*.joblib"))) == 5
+
+
+def test_workers_that_keep_dying_raise_and_keep_saved_folds(tmp_path, monkeypatch):
+    monkeypatch.setattr(persistence, "MAX_WORKER_RETRIES", 1)
+    task = _task("doomed", AlwaysCrashClassifier())
+    with (
+        pytest.warns(CacheWarning, match="worker died"),
+        pytest.raises(RuntimeError, match="kept dying"),
+    ):
+        run_configurations_cached([task], cache_dir=tmp_path, n_jobs=4)

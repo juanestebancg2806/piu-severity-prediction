@@ -13,6 +13,7 @@ from piu_severity.models.pipelines import (
     ALGORITHMS,
     BOOSTING_GRID,
     CLASSIFIER_GRIDS,
+    EXECUTION_POOLS,
     FORMULATIONS,
     LOGISTIC_GRID,
     MAX_ITER_INCREASE,
@@ -22,14 +23,18 @@ from piu_severity.models.pipelines import (
     choose_cut_level,
     complexity_key,
     convergence_warning_share,
+    effective_cut_level,
+    effective_max_iter_factor,
     make_boosting_search,
     make_logistic_search,
     make_search,
+    make_search_task,
     max_iter_factor_for,
     memory_budget_gb,
     model_grid,
     n_candidates,
     n_forest_trees,
+    pool_workers,
     project_search_hours,
     search_grid,
     total_memory_gb,
@@ -308,19 +313,33 @@ def _fold_seconds(seconds: float) -> dict[tuple[str, str], float]:
     return dict.fromkeys(CONFIGURATIONS, seconds)
 
 
-def test_projection_counts_waves_of_parallel_folds():
+def test_execution_pools_cover_every_algorithm_once():
+    pooled = [algorithm for pool in EXECUTION_POOLS for algorithm in pool]
+    assert sorted(pooled) == sorted(ALGORITHMS)
+    assert ("random_forest",) in EXECUTION_POOLS
+
+
+def test_pool_workers_use_the_most_restricted_algorithm():
+    workers = {"linear": 13, "svm": 13, "gradient_boosting": 9, "random_forest": 4}
+    assert pool_workers(EXECUTION_POOLS[0], workers) == 9
+    assert pool_workers(EXECUTION_POOLS[1], workers) == 4
+
+
+def test_projection_shares_workers_within_each_pool():
     workers = dict.fromkeys(ALGORITHMS, 25)
-    assert project_search_hours(_fold_seconds(300.0), workers, 0) == pytest.approx(1.0)
-    workers = dict.fromkeys(ALGORITHMS, 12)
-    assert project_search_hours(_fold_seconds(300.0), workers, 0) == pytest.approx(3.0)
+    # Nine configurations share the first pool and three the forest pool: each
+    # pool takes 25 folds of every configuration over 25 workers plus one fold.
+    expected = (9 * 300 + 300 + 3 * 300 + 300) / 3_600
+    hours = project_search_hours(_fold_seconds(300.0), workers, 0)
+    assert hours == pytest.approx(expected)
 
 
 def test_projection_scales_with_the_cuts():
     workers = dict.fromkeys(ALGORITHMS, 25)
     seconds = {("svm", "multiclass"): 3_600.0}
-    assert project_search_hours(seconds, workers, 1) == pytest.approx(0.5)
+    assert project_search_hours(seconds, workers, 1) == pytest.approx(1.0)
     seconds = {("random_forest", "multiclass"): 3_600.0}
-    assert project_search_hours(seconds, workers, 3) == pytest.approx(0.6)
+    assert project_search_hours(seconds, workers, 3) == pytest.approx(1.2)
 
 
 def test_choose_cut_level_returns_the_lowest_level_within_budget():
@@ -338,3 +357,72 @@ def test_convergence_share_counts_base_model_fits():
     assert convergence_warning_share(40, 100, "threshold_regression") == pytest.approx(
         0.1
     )
+
+
+def test_search_task_names_and_signature_identify_the_evaluation():
+    X, y = _full_search_data()
+    splits = outer_splits(y)
+    task = make_search_task("svm", "frank_hall", "main", X, y, splits, cut_level=2)
+    assert task.name == "svm__frank_hall__main__c2__i1"
+    assert task.fields["config"] == {
+        "algorithm": "svm",
+        "formulation": "frank_hall",
+        "feature_set": "main",
+        "cut_level": 2,
+        "max_iter_factor": 1,
+    }
+    assert task.fields["n_repeats"] == 5
+    extended = make_search_task(
+        "svm", "frank_hall", "main", X, y, splits, name_suffix="__extended"
+    )
+    assert extended.name == "svm__frank_hall__main__c0__i1__extended"
+
+
+def test_effective_cut_level_ignores_cuts_that_do_not_touch_the_configuration():
+    assert effective_cut_level("linear", "multiclass", 5) == 0
+    assert effective_cut_level("gradient_boosting", "multiclass", 3) == 0
+    assert effective_cut_level("gradient_boosting", "multiclass", 4) == 4
+    assert effective_cut_level("gradient_boosting", "multiclass", 5) == 5
+    assert effective_cut_level("svm", "multiclass", 1) == 1
+    assert effective_cut_level("svm", "multiclass", 5) == 2
+    assert effective_cut_level("random_forest", "frank_hall", 2) == 0
+    assert effective_cut_level("random_forest", "frank_hall", 5) == 3
+
+
+def test_iteration_factor_only_changes_the_linear_models():
+    assert effective_max_iter_factor("linear", 5) == 5
+    for algorithm in ("svm", "random_forest", "gradient_boosting"):
+        assert effective_max_iter_factor(algorithm, 5) == 1
+
+
+def test_tasks_with_the_same_search_share_their_cache_files():
+    X, y = _full_search_data()
+    splits = outer_splits(y)
+    first = make_search_task("gradient_boosting", "multiclass", "main", X, y, splits)
+    later = make_search_task(
+        "gradient_boosting",
+        "multiclass",
+        "main",
+        X,
+        y,
+        splits,
+        cut_level=3,
+        max_iter_factor=5,
+    )
+    assert (later.name, later.fields) == (first.name, first.fields)
+    linear = make_search_task(
+        "linear", "multiclass", "main", X, y, splits, max_iter_factor=5
+    )
+    assert linear.name == "linear__multiclass__main__c0__i5"
+    assert linear.estimator.estimator["model"].estimator.max_iter == 50_000
+
+
+def test_first_repeat_folds_are_reused_by_the_full_evaluation():
+    X, y = _full_search_data()
+    splits = outer_splits(y)
+    first_repeat = [split for split in splits if split.repeat == 0]
+    partial = make_search_task(
+        "linear", "multiclass", "main", X, y, first_repeat
+    ).fields
+    full = make_search_task("linear", "multiclass", "main", X, y, splits).fields
+    assert partial == full

@@ -11,6 +11,8 @@ import math
 import os
 from collections.abc import Iterable, Mapping
 
+import pandas as pd
+from numpy.typing import ArrayLike
 from sklearn.base import BaseEstimator
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import (
@@ -26,7 +28,8 @@ from sklearn.svm import SVC, SVR
 
 from piu_severity.config import RANDOM_SEED
 from piu_severity.evaluation.metrics import qwk_scorer
-from piu_severity.evaluation.validation import inner_cv
+from piu_severity.evaluation.persistence import EvaluationTask, evaluation_fields
+from piu_severity.evaluation.validation import N_OUTER_REPEATS, Split, inner_cv
 from piu_severity.features.preprocessing import (
     MissingDataPreprocessor,
     build_preprocessor,
@@ -186,6 +189,13 @@ N_FOLDS_FULL_SEARCH = 25
 # changes the running time, never the results.
 RESERVED_CORES = 2
 FOREST_CORES_PER_WORKER = 3
+# Algorithms whose outer folds share one pool of workers. Random forests run in
+# their own pool, with fewer workers, so they never compete for memory with the
+# other algorithms.
+EXECUTION_POOLS: tuple[tuple[str, ...], ...] = (
+    ("linear", "svm", "gradient_boosting"),
+    ("random_forest",),
+)
 MEMORY_BUDGET_FRACTION = 0.75
 MEMORY_SAFETY_FACTOR = 1.25
 
@@ -193,6 +203,7 @@ MEMORY_SAFETY_FACTOR = 1.25
 # its fits in the first repeat gets its iteration limits multiplied.
 CONVERGENCE_WARNING_MAX_SHARE = 0.05
 MAX_ITER_INCREASE = 5
+ALGORITHMS_WITH_MAX_ITER: tuple[str, ...] = ("linear",)
 
 # Complexity of the final model, from lowest to highest, used only to break ties
 # in the selection rule: algorithm first, then formulation, then the strategy.
@@ -449,6 +460,11 @@ def cost_ratio(algorithm: str, formulation: str, cut_level: int) -> float:
     return ratio
 
 
+def pool_workers(pool: Iterable[str], workers: Mapping[str, int]) -> int:
+    """Return the workers of a pool: the fewest allowed to any of its algorithms."""
+    return min(workers[algorithm] for algorithm in pool)
+
+
 def project_search_hours(
     fold_seconds: Mapping[tuple[str, str], float],
     workers: Mapping[str, int],
@@ -458,13 +474,19 @@ def project_search_hours(
     """Return the projected wall-clock hours of the full search at cut_level.
 
     fold_seconds holds the mean seconds of one outer fold of each configuration
-    at level 0, measured in the first repeat. Configurations run one after the
-    other and their folds run in waves of as many folds as workers.
+    at level 0, measured in the first repeat. The folds of each pool share its
+    workers and the pools run one after the other. A pool takes its total work
+    divided by its workers, plus its longest fold, which may finish alone.
     """
     total = 0.0
-    for (algorithm, formulation), seconds in fold_seconds.items():
-        waves = math.ceil(n_folds / workers[algorithm])
-        total += waves * seconds * cost_ratio(algorithm, formulation, cut_level)
+    for pool in EXECUTION_POOLS:
+        costs = [
+            seconds * cost_ratio(algorithm, formulation, cut_level)
+            for (algorithm, formulation), seconds in fold_seconds.items()
+            if algorithm in pool
+        ]
+        if costs:
+            total += n_folds * sum(costs) / pool_workers(pool, workers) + max(costs)
     return total / 3_600
 
 
@@ -482,3 +504,89 @@ def choose_cut_level(
         if project_search_hours(fold_seconds, workers, level) <= budget_hours:
             return level
     return MAX_CUT_LEVEL
+
+
+def effective_cut_level(algorithm: str, formulation: str, cut_level: int) -> int:
+    """Return the lowest cut level whose search is identical to the one at cut_level.
+
+    Most cuts touch only some algorithms; the linear model, for example, has the
+    same search at every level. Naming the evaluation by this level lets a later
+    run at a higher level reuse the folds already fitted when nothing changed.
+    """
+    _check_configuration(algorithm, formulation, cut_level)
+
+    def search_at(level: int) -> tuple:
+        trees = n_forest_trees(level) if algorithm == "random_forest" else None
+        grid = search_grid(algorithm, formulation, level)
+        return grid, uses_random_search(algorithm, level), trees
+
+    target = search_at(cut_level)
+    return next(level for level in range(cut_level + 1) if search_at(level) == target)
+
+
+def effective_max_iter_factor(algorithm: str, max_iter_factor: int) -> int:
+    """Return the iteration multiplier that actually changes the estimator.
+
+    Only the linear models have an iteration limit that the convergence rule
+    raises; for the other algorithms the multiplier is 1.
+    """
+    return max_iter_factor if algorithm in ALGORITHMS_WITH_MAX_ITER else 1
+
+
+def make_search_task(
+    algorithm: str,
+    formulation: str,
+    feature_set: str,
+    X: pd.DataFrame,
+    y: ArrayLike,
+    splits: list[Split],
+    *,
+    cut_level: int = 0,
+    max_iter_factor: int = 1,
+    memory: str | None = None,
+    evaluation: str = "search",
+    n_repeats: int = N_OUTER_REPEATS,
+    extra: Mapping | None = None,
+    keep_estimators: bool = False,
+    name_suffix: str = "",
+) -> EvaluationTask:
+    """Return the cached evaluation of one configuration on one feature set.
+
+    The cut level and the iteration multiplier are reduced to the ones that
+    change this configuration, and both enter the cache name and signature: a
+    run with another search never overwrites the folds of an earlier one, and a
+    run with the same search reuses them. n_repeats must be the number of
+    repeats of the full evaluation, also when only some of its splits are
+    passed, so that the folds fitted first are reused later.
+    """
+    cut_level = effective_cut_level(algorithm, formulation, cut_level)
+    max_iter_factor = effective_max_iter_factor(algorithm, max_iter_factor)
+    search = make_search(
+        algorithm,
+        formulation,
+        X.columns,
+        cut_level=cut_level,
+        max_iter_factor=max_iter_factor,
+        memory=memory,
+    )
+    config = {
+        "algorithm": algorithm,
+        "formulation": formulation,
+        "feature_set": feature_set,
+        "cut_level": cut_level,
+        "max_iter_factor": max_iter_factor,
+    }
+    fields = evaluation_fields(
+        search,
+        X,
+        y,
+        config=config,
+        evaluation=evaluation,
+        n_repeats=n_repeats,
+        extra=extra,
+    )
+    name = (
+        f"{algorithm}__{formulation}__{feature_set}"
+        f"__c{cut_level}__i{max_iter_factor}{name_suffix}"
+    )
+    return EvaluationTask(name, search, X, y, splits, fields, keep_estimators)

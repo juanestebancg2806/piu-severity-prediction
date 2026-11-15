@@ -13,9 +13,11 @@ import json
 import shutil
 import subprocess
 import time
+import traceback
 import warnings
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures.process import BrokenProcessPool
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -43,6 +45,9 @@ SKLEARN_VERSION = sklearn.__version__
 PIPELINE_MEMORY_FOLDER = "pipeline_memory"
 IGNORED_PARAMETERS = frozenset({"memory", "n_jobs", "verbose", "pre_dispatch"})
 STORED_KEYS = frozenset({"fields", "fields_hash", "result", "metadata"})
+# After a worker dies (for example, killed for lack of memory), the folds that
+# were not saved are retried with half the workers, at most this many times.
+MAX_WORKER_RETRIES = 2
 
 
 class CacheWarning(UserWarning):
@@ -287,6 +292,43 @@ def _fold_path(cache_dir: Path, name: str, split: Split) -> Path:
     return cache_dir / f"{name}_r{split.repeat}_f{split.fold}.joblib"
 
 
+@dataclass(frozen=True)
+class EvaluationTask:
+    """One cached nested cross-validation: an estimator, its data and its splits.
+
+    name identifies the evaluation in the cache (for example, algorithm,
+    formulation and feature set); fields comes from evaluation_fields.
+    """
+
+    name: str
+    estimator: BaseEstimator
+    X: pd.DataFrame
+    y: ArrayLike
+    splits: list[Split]
+    fields: Mapping
+    keep_estimators: bool = False
+    levels: np.ndarray = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "levels", as_levels(self.y))
+
+    def require(self) -> Callable[[object], bool] | None:
+        """Return the check a cached fold must pass, or None."""
+        if not self.keep_estimators:
+            return None
+        return lambda result: result["estimator"] is not None
+
+
+@dataclass(frozen=True)
+class _PendingFold:
+    """A fold that has to be fitted: its task, split, file and signature."""
+
+    task: int
+    split: Split
+    path: Path
+    fields: Mapping
+
+
 def _compute_fold(
     estimator: BaseEstimator,
     X: pd.DataFrame,
@@ -295,12 +337,166 @@ def _compute_fold(
     path: Path,
     fields: Mapping,
     keep_estimator: bool,
-) -> tuple[dict, str | None]:
-    """Evaluate one fold and save it from the worker; return any save error."""
+) -> tuple[dict | None, str | None, str | None]:
+    """Evaluate and save one fold in a worker.
+
+    Returns the result, a save error and a fit error. A fit error is returned
+    instead of raised, so one failing fold does not stop the others.
+    """
     start = time.perf_counter()
-    result = evaluate_fold(estimator, X, levels, split, keep_estimator)
+    try:
+        result = evaluate_fold(estimator, X, levels, split, keep_estimator)
+    except Exception:  # noqa: BLE001 - reported for every failing fold at the end
+        return None, None, traceback.format_exc()
     error = write_cached(path, fields, result, (time.perf_counter() - start) / 60)
-    return result, error
+    return result, error, None
+
+
+def _plan_folds(
+    tasks: Sequence[EvaluationTask], cache_dir: Path, force: bool
+) -> tuple[dict[tuple[str, int, int], dict], list[_PendingFold]]:
+    """Load the folds already cached and list those that have to be fitted."""
+    loaded: dict[tuple[str, int, int], dict] = {}
+    pending: list[_PendingFold] = []
+    for index, task in enumerate(tasks):
+        for split in task.splits:
+            path = _fold_path(cache_dir, task.name, split)
+            fields = fold_fields(task.fields, split)
+            if not force:
+                result, state = read_cached(path, fields, task.require())
+                if state == "loaded":
+                    loaded[(task.name, split.repeat, split.fold)] = result
+                    continue
+            pending.append(_PendingFold(index, split, path, fields))
+    return loaded, pending
+
+
+def _fit_pending(
+    tasks: Sequence[EvaluationTask],
+    pending: list[_PendingFold],
+    n_jobs: int | None,
+    verbose: int,
+) -> tuple[dict[tuple[str, int, int], dict], dict[tuple[str, int, int], str]]:
+    """Fit the pending folds in one pool of workers, recovering from dead workers.
+
+    Each worker saves its fold as soon as it finishes. If a worker dies, the
+    folds saved before the failure are read back and the rest are retried with
+    half the workers, up to MAX_WORKER_RETRIES times.
+    """
+    computed: dict[tuple[str, int, int], dict] = {}
+    failures: dict[tuple[str, int, int], str] = {}
+    workers = n_jobs
+    for attempt in range(MAX_WORKER_RETRIES + 1):
+        try:
+            outputs = Parallel(n_jobs=workers, verbose=verbose)(
+                delayed(_compute_fold)(
+                    tasks[fold.task].estimator,
+                    tasks[fold.task].X,
+                    tasks[fold.task].levels,
+                    fold.split,
+                    fold.path,
+                    fold.fields,
+                    tasks[fold.task].keep_estimators,
+                )
+                for fold in pending
+            )
+        except BrokenProcessPool as error:
+            if attempt == MAX_WORKER_RETRIES:
+                raise RuntimeError(
+                    f"Workers kept dying after {MAX_WORKER_RETRIES} retries; the "
+                    "folds already saved are kept. Lower the number of workers."
+                ) from error
+            pending = _recover_saved(tasks, pending, computed)
+            workers = max(1, (workers or 1) // 2)
+            warnings.warn(
+                f"A worker died ({error}); retrying {len(pending)} folds with "
+                f"{workers} workers.",
+                CacheWarning,
+                stacklevel=2,
+            )
+            continue
+        for fold, (result, save_error, fit_error) in zip(pending, outputs, strict=True):
+            key = (tasks[fold.task].name, fold.split.repeat, fold.split.fold)
+            if fit_error:
+                failures[key] = fit_error
+                continue
+            if save_error:
+                warnings.warn(save_error, CacheWarning, stacklevel=2)
+            computed[key] = result
+        break
+    return computed, failures
+
+
+def _recover_saved(
+    tasks: Sequence[EvaluationTask],
+    pending: list[_PendingFold],
+    computed: dict[tuple[str, int, int], dict],
+) -> list[_PendingFold]:
+    """Read back the folds saved before a worker died; return those still missing."""
+    remaining = []
+    for fold in pending:
+        task = tasks[fold.task]
+        result, state = read_cached(fold.path, fold.fields, task.require())
+        if state == "loaded":
+            computed[(task.name, fold.split.repeat, fold.split.fold)] = result
+        else:
+            remaining.append(fold)
+    return remaining
+
+
+def _assemble(
+    task: EvaluationTask, results: Mapping, status: Mapping
+) -> CachedEvaluation:
+    """Collect the folds of one task into the tables of run_nested_cv."""
+    keys = [(task.name, split.repeat, split.fold) for split in task.splits]
+    folds = pd.DataFrame(
+        [{**results[key]["row"], "status": status[key]} for key in keys]
+    )
+    extra_columns = [c for c in folds.columns if c not in FOLD_COLUMNS]
+    return CachedEvaluation(
+        folds=folds[[*FOLD_COLUMNS, *extra_columns]],
+        predictions=pd.concat(
+            [results[key]["predictions"] for key in keys], ignore_index=True
+        ),
+        cv_results={key[1:]: results[key]["cv_results"] for key in keys},
+        estimators={key[1:]: results[key]["estimator"] for key in keys},
+    )
+
+
+def run_configurations_cached(
+    tasks: Sequence[EvaluationTask],
+    *,
+    cache_dir: Path,
+    n_jobs: int | None = None,
+    force: bool = False,
+    verbose: int = 0,
+) -> dict[str, CachedEvaluation]:
+    """Evaluate several tasks with one pool of workers, loading cached folds.
+
+    The folds of all tasks share the pool, so the workers stay busy across
+    configurations, and each fold is timed under the same load as the others.
+    Folds whose file is missing, unreadable or has another signature are fitted;
+    the rest are loaded. A fold whose fit fails does not stop the others: the
+    error is raised at the end, after every other fold has been saved, and a new
+    call fits only the folds still missing.
+    """
+    names = [task.name for task in tasks]
+    if len(set(names)) != len(names):
+        raise ValueError("Task names must be unique.")
+    loaded, pending = _plan_folds(tasks, cache_dir, force)
+    computed, failures = _fit_pending(tasks, pending, n_jobs, verbose)
+    if failures:
+        first_key, first_error = next(iter(failures.items()))
+        raise RuntimeError(
+            f"{len(failures)} folds failed and were not saved: {sorted(failures)}. "
+            f"First error, in {first_key}:\n{first_error}"
+        )
+    results = {**loaded, **computed}
+    status = {
+        **dict.fromkeys(loaded, "loaded"),
+        **dict.fromkeys(computed, "computed"),
+    }
+    return {task.name: _assemble(task, results, status) for task in tasks}
 
 
 def run_nested_cv_cached(
@@ -318,61 +514,16 @@ def run_nested_cv_cached(
 ) -> CachedEvaluation:
     """Run run_nested_cv's evaluation, loading the folds already on disk.
 
-    Only the folds whose file is missing, unreadable or has another signature
-    are fitted, in parallel with n_jobs; each worker saves its fold as soon as
-    it finishes. fields comes from evaluation_fields. With keep_estimators, the
-    fitted best estimator of each fold is kept, and folds cached without it are
-    refitted.
+    A single-task run_configurations_cached: only the folds whose file is
+    missing, unreadable or has another signature are fitted, in parallel with
+    n_jobs, and each worker saves its fold as soon as it finishes. With
+    keep_estimators, the fitted best estimator of each fold is kept, and folds
+    cached without it are refitted.
     """
-    levels = as_levels(y)
-    require = (
-        (lambda result: result["estimator"] is not None) if keep_estimators else None
-    )
-    results: dict[tuple[int, int], dict] = {}
-    status: dict[tuple[int, int], str] = {}
-    pending = []
-    for split in splits:
-        key = (split.repeat, split.fold)
-        path = _fold_path(cache_dir, name, split)
-        cached, state = (
-            (None, "forced")
-            if force
-            else read_cached(path, fold_fields(fields, split), require)
-        )
-        if state == "loaded":
-            results[key], status[key] = cached, "loaded"
-        else:
-            pending.append((split, path))
-    computed = Parallel(n_jobs=n_jobs)(
-        delayed(_compute_fold)(
-            estimator,
-            X,
-            levels,
-            split,
-            path,
-            fold_fields(fields, split),
-            keep_estimators,
-        )
-        for split, path in pending
-    )
-    for (split, _), (result, error) in zip(pending, computed, strict=True):
-        if error:
-            warnings.warn(error, CacheWarning, stacklevel=2)
-        key = (split.repeat, split.fold)
-        results[key], status[key] = result, "computed"
-    keys = [(split.repeat, split.fold) for split in splits]
-    folds = pd.DataFrame(
-        [{**results[key]["row"], "status": status[key]} for key in keys]
-    )
-    extra_columns = [c for c in folds.columns if c not in FOLD_COLUMNS]
-    return CachedEvaluation(
-        folds=folds[[*FOLD_COLUMNS, *extra_columns]],
-        predictions=pd.concat(
-            [results[key]["predictions"] for key in keys], ignore_index=True
-        ),
-        cv_results={key: results[key]["cv_results"] for key in keys},
-        estimators={key: results[key]["estimator"] for key in keys},
-    )
+    task = EvaluationTask(name, estimator, X, y, splits, fields, keep_estimators)
+    return run_configurations_cached(
+        [task], cache_dir=cache_dir, n_jobs=n_jobs, force=force
+    )[name]
 
 
 def directory_size(path: Path) -> int:
