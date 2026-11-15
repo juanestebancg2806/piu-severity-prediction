@@ -7,6 +7,7 @@ from sklearn.base import clone
 from sklearn.model_selection import ParameterGrid, RandomizedSearchCV
 
 from piu_severity.evaluation.metrics import qwk_scorer
+from piu_severity.evaluation.selection import extension_value
 from piu_severity.evaluation.validation import outer_splits, run_nested_cv
 from piu_severity.features.preprocessing import MissingDataPreprocessor
 from piu_severity.models.pipelines import (
@@ -460,3 +461,32 @@ def test_grid_extension_rejects_unknown_parameters_and_repeated_values():
     with pytest.raises(ValueError, match="already has"):
         extend_grid(grid, {"model__estimator__C": [1.0]})
     assert extend_grid(grid, None) == grid
+
+
+def test_every_possible_grid_extension_fits():
+    # Extend every edge that the rule could extend and fit one candidate built
+    # from the new values, so an extended search never fails on its parameters.
+    X, y = _full_search_data()
+    for algorithm, formulation in CONFIGURATIONS:
+        grid = search_grid(algorithm, formulation, 1)
+        extension = {}
+        for name, values in grid.items():
+            numeric = all(isinstance(v, (int, float)) for v in values)
+            if not numeric or len(values) < 3:
+                continue
+            for edge in ("lower", "upper"):
+                value = extension_value(name, values, edge)
+                if value is not None:
+                    extension.setdefault(name, []).append(value)
+        search = make_search(
+            algorithm, formulation, X.columns, cut_level=1, grid_extension=extension
+        )
+        candidate = {
+            name: extension.get(name, values)[-1:]
+            for name, values in search.param_grid.items()
+        }
+        search.set_params(param_grid=candidate)
+        if algorithm == "random_forest":
+            search.estimator.set_params(model__estimator__n_estimators=20)
+        predictions = search.fit(X, y).predict(X)
+        assert set(np.unique(predictions)) <= {0, 1, 2, 3}

@@ -89,6 +89,20 @@ def test_edge_review_counts_folds_and_applies_the_threshold():
     assert grid_extension(review) == {name: [100.0]}
 
 
+def test_integer_extensions_stay_integer():
+    name = "model__estimator__min_samples_leaf"
+    grid = {name: [1, 5, 20, 50], "model__estimator__C": [0.1, 1.0, 10.0]}
+    best = [{name: 50, "model__estimator__C": 10.0}] * N_FOLDS
+    review = edge_review(best, grid)
+    extension = grid_extension(review)
+    assert extension == {name: [125], "model__estimator__C": [100.0]}
+    assert type(extension[name][0]) is int
+    assert type(extension["model__estimator__C"][0]) is float
+    assert (
+        review.set_index(["parameter", "edge"]).loc[(name, "lower"), "edge_value"] == 1
+    )
+
+
 def test_edge_review_skips_categorical_and_two_value_grids():
     grid = {
         "preprocess__strategy": ["simple", "iterative"],
@@ -126,6 +140,7 @@ def test_edge_review_works_on_every_grid_of_the_search():
             extension = grid_extension(review)
             for name, values in extension.items():
                 assert all(value not in grid[name] for value in values)
+                assert all(type(value) is type(grid[name][-1]) for value in values)
 
 
 def test_chosen_values_and_most_frequent_value():

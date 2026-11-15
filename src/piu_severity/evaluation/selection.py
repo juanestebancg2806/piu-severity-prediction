@@ -147,14 +147,30 @@ def edge_review(
         "extension_value",
         "extend",
     ]
-    return pd.DataFrame(rows, columns=columns)
+    review = pd.DataFrame(rows, columns=columns)
+    # Keep the values as they are in the grid: in a float column, an integer
+    # such as min_samples_leaf = 125 would become 125.0, which scikit-learn
+    # reads as a fraction of the samples.
+    for column in ("edge_value", "extension_value"):
+        review[column] = pd.Series(
+            [row[column] for row in rows], index=review.index, dtype=object
+        )
+    return review
 
 
 def grid_extension(review: pd.DataFrame) -> dict[str, list]:
-    """Return the values to add to each grid parameter, from an edge review."""
+    """Return the values to add to each grid parameter, from an edge review.
+
+    Integer values stay integer, so that count hyperparameters keep their meaning.
+    """
     extension: dict[str, list] = {}
-    for row in review.loc[review["extend"]].itertuples():
-        extension.setdefault(row.parameter, []).append(row.extension_value)
+    for row in review.loc[review["extend"].astype(bool)].itertuples():
+        value = row.extension_value
+        if isinstance(value, (np.integer, int)):
+            value = int(value)
+        elif isinstance(value, (np.floating, float)):
+            value = float(value)
+        extension.setdefault(row.parameter, []).append(value)
     return extension
 
 
