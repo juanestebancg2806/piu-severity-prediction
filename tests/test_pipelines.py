@@ -21,6 +21,7 @@ from piu_severity.models.pipelines import (
     available_workers,
     choose_cut_level,
     complexity_key,
+    convergence_warning_share,
     make_boosting_search,
     make_logistic_search,
     make_search,
@@ -315,3 +316,11 @@ def test_choose_cut_level_returns_the_lowest_level_within_budget():
     assert project_search_hours(_fold_seconds(3_000.0), workers, level) <= 8
     assert project_search_hours(_fold_seconds(3_000.0), workers, level - 1) > 8
     assert choose_cut_level(_fold_seconds(1e6), workers, budget_hours=1) == 5
+
+
+def test_convergence_share_counts_base_model_fits():
+    assert convergence_warning_share(10, 100, "multiclass") == pytest.approx(0.1)
+    assert convergence_warning_share(30, 100, "frank_hall") == pytest.approx(0.1)
+    assert convergence_warning_share(40, 100, "threshold_regression") == pytest.approx(
+        0.1
+    )

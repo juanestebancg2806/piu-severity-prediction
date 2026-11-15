@@ -2,10 +2,14 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.dummy import DummyClassifier
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 
+from piu_severity.evaluation.metrics import as_levels
 from piu_severity.evaluation.validation import (
+    FOLD_COLUMNS,
     aggregate_repeats,
+    evaluate_fold,
     mean_confusion_matrix,
     outer_splits,
     paired_differences,
@@ -149,3 +153,45 @@ def test_permutation_null_is_centered_near_zero():
 
 def test_permutation_p_value():
     assert permutation_p_value(0.5, np.array([0.1, 0.6])) == pytest.approx(2 / 3)
+
+
+def test_run_nested_cv_keeps_its_columns():
+    y = _labels()
+    X = _features(y, noise=0.5)
+    splits = outer_splits(y, n_splits=5, n_repeats=1)
+    folds, _ = run_nested_cv(LogisticRegression(), X, y, splits)
+    assert tuple(folds.columns) == FOLD_COLUMNS
+
+
+def test_parallel_outer_folds_match_sequential_ones():
+    y = _labels()
+    X = _features(y, noise=0.5)
+    splits = outer_splits(y, n_splits=5, n_repeats=2)
+    sequential = run_nested_cv(LogisticRegression(), X, y, splits)
+    parallel = run_nested_cv(LogisticRegression(), X, y, splits, n_jobs=2)
+    pd.testing.assert_frame_equal(
+        sequential[0].drop(columns="fit_seconds"),
+        parallel[0].drop(columns="fit_seconds"),
+    )
+    pd.testing.assert_frame_equal(sequential[1], parallel[1])
+
+
+def test_run_nested_cv_still_shows_convergence_warnings():
+    y = _labels()
+    X = _features(y, noise=0.5)
+    splits = outer_splits(y, n_splits=5, n_repeats=1)
+    with pytest.warns(ConvergenceWarning):
+        run_nested_cv(LogisticRegression(solver="saga", max_iter=1), X, y, splits)
+
+
+def test_evaluate_fold_counts_model_convergence_warnings():
+    y = _labels()
+    X = _features(y, noise=0.5)
+    split = outer_splits(y, n_splits=5, n_repeats=1)[0]
+    result = evaluate_fold(
+        LogisticRegression(solver="saga", max_iter=1), X, as_levels(y), split
+    )
+    assert result["row"]["convergence_warnings_model"] >= 1
+    assert result["row"]["convergence_warnings_imputer"] == 0
+    assert result["row"]["n_pipeline_fits"] == 1
+    assert result["estimator"] is None

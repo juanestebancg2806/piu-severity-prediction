@@ -31,6 +31,7 @@ from piu_severity.features.preprocessing import (
     build_preprocessor,
 )
 from piu_severity.models.ordinal import (
+    N_THRESHOLD_SPLITS,
     FrankHallClassifier,
     MulticlassClassifier,
     ThresholdRegressor,
@@ -398,6 +399,22 @@ def workers_within_memory(workers: int, peak_mb_per_worker: float) -> int:
     per_worker = peak_mb_per_worker * MEMORY_SAFETY_FACTOR
     allowed = math.floor(MEMORY_BUDGET_GB * 1024 / per_worker)
     return max(1, min(workers, allowed))
+
+
+# Base-model fits in one pipeline fit of each formulation: one model, one per cut
+# point, or one per internal fold of the thresholds plus the final refit.
+MODELS_PER_PIPELINE_FIT: dict[str, int] = {
+    "multiclass": 1,
+    "frank_hall": 3,
+    "threshold_regression": N_THRESHOLD_SPLITS + 1,
+}
+
+
+def convergence_warning_share(
+    n_warnings: int, n_pipeline_fits: int, formulation: str
+) -> float:
+    """Return the share of base-model fits that raised a convergence warning."""
+    return n_warnings / (n_pipeline_fits * MODELS_PER_PIPELINE_FIT[formulation])
 
 
 def max_iter_factor_for(warning_share: float) -> int:

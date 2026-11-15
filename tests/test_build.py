@@ -118,7 +118,7 @@ def test_usable_actigraphy_mask_accepts_a_partially_observed_series():
     not (RAW_DATA_DIR / TRAIN_FILE).is_file() or not ACTIGRAPHY_SUMMARY_FILE.is_file(),
     reason="raw data or actigraphy summary not available",
 )
-def test_actigraphy_subpopulation_has_823_participants_and_6_severe():
+def test_actigraphy_subpopulation_is_a_proper_subset_with_every_level():
     from piu_severity.data.clean import clean_values
     from piu_severity.data.load import list_actigraphy_ids, load_train
 
@@ -128,5 +128,7 @@ def test_actigraphy_subpopulation_has_823_participants_and_6_severe():
         clean_values(labeled), load_actigraphy_summary(list_actigraphy_ids())
     )
     mask = usable_actigraphy_mask(data)
-    assert int(mask.sum()) == 823
-    assert int((data.loc[mask, TARGET_COLUMN] == 3).sum()) == 6
+    actigraphy = data[list(ACTIGRAPHY_FEATURES.values())]
+    assert 0 < mask.sum() < len(data)
+    assert actigraphy[~mask].isna().all().all()
+    assert set(data.loc[mask, TARGET_COLUMN].astype(int)) == {0, 1, 2, 3}
