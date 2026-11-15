@@ -35,6 +35,7 @@ from piu_severity.evaluation.validation import (
     FOLD_COLUMNS,
     Split,
     evaluate_fold,
+    evaluate_fold_extension,
     hash_indices,
 )
 
@@ -286,6 +287,22 @@ class CachedEvaluation:
             "computed": int((status == "computed").sum()),
         }
 
+    def fold_results(self) -> dict[tuple[int, int], dict]:
+        """Return each fold as evaluate_fold returns it, keyed by (repeat, fold)."""
+        results = {}
+        for row in self.folds.to_dict("records"):
+            key = (row["repeat"], row["fold"])
+            selected = (self.predictions["repeat"] == key[0]) & (
+                self.predictions["fold"] == key[1]
+            )
+            results[key] = {
+                "row": row,
+                "predictions": self.predictions.loc[selected].reset_index(drop=True),
+                "cv_results": self.cv_results[key],
+                "estimator": self.estimators[key],
+            }
+        return results
+
 
 def _fold_path(cache_dir: Path, name: str, split: Split) -> Path:
     """Return the cache file of one outer fold of an evaluation."""
@@ -297,7 +314,10 @@ class EvaluationTask:
     """One cached nested cross-validation: an estimator, its data and its splits.
 
     name identifies the evaluation in the cache (for example, algorithm,
-    formulation and feature set); fields comes from evaluation_fields.
+    formulation and feature set); fields comes from evaluation_fields. When
+    previous holds the folds of the same evaluation with a smaller grid, keyed
+    by (repeat, fold), only the new candidates are evaluated, with the result of
+    the full search (evaluate_fold_extension).
     """
 
     name: str
@@ -307,10 +327,20 @@ class EvaluationTask:
     splits: list[Split]
     fields: Mapping
     keep_estimators: bool = False
+    previous: Mapping[tuple[int, int], Mapping] | None = field(default=None, repr=False)
     levels: np.ndarray = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "levels", as_levels(self.y))
+
+    def previous_for(self, split: Split) -> Mapping | None:
+        """Return the previous result of a split, or None without a previous grid."""
+        if self.previous is None:
+            return None
+        key = (split.repeat, split.fold)
+        if key not in self.previous:
+            raise KeyError(f"{self.name}: no previous result for fold {key}.")
+        return self.previous[key]
 
     def require(self) -> Callable[[object], bool] | None:
         """Return the check a cached fold must pass, or None."""
@@ -337,15 +367,22 @@ def _compute_fold(
     path: Path,
     fields: Mapping,
     keep_estimator: bool,
+    previous: Mapping | None = None,
 ) -> tuple[dict | None, str | None, str | None]:
     """Evaluate and save one fold in a worker.
 
-    Returns the result, a save error and a fit error. A fit error is returned
-    instead of raised, so one failing fold does not stop the others.
+    With previous, only the candidates missing from it are evaluated. Returns
+    the result, a save error and a fit error. A fit error is returned instead of
+    raised, so one failing fold does not stop the others.
     """
     start = time.perf_counter()
     try:
-        result = evaluate_fold(estimator, X, levels, split, keep_estimator)
+        if previous is None:
+            result = evaluate_fold(estimator, X, levels, split, keep_estimator)
+        else:
+            result = evaluate_fold_extension(
+                estimator, previous, X, levels, split, keep_estimator
+            )
     except Exception:  # noqa: BLE001 - reported for every failing fold at the end
         return None, None, traceback.format_exc()
     error = write_cached(path, fields, result, (time.perf_counter() - start) / 60)
@@ -397,6 +434,7 @@ def _fit_pending(
                     fold.path,
                     fold.fields,
                     tasks[fold.task].keep_estimators,
+                    tasks[fold.task].previous_for(fold.split),
                 )
                 for fold in pending
             )

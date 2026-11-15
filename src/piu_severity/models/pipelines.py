@@ -28,7 +28,11 @@ from sklearn.svm import SVC, SVR
 
 from piu_severity.config import RANDOM_SEED
 from piu_severity.evaluation.metrics import qwk_scorer
-from piu_severity.evaluation.persistence import EvaluationTask, evaluation_fields
+from piu_severity.evaluation.persistence import (
+    CachedEvaluation,
+    EvaluationTask,
+    evaluation_fields,
+)
 from piu_severity.evaluation.validation import N_OUTER_REPEATS, Split, inner_cv
 from piu_severity.features.preprocessing import (
     MissingDataPreprocessor,
@@ -571,6 +575,7 @@ def make_search_task(
     keep_estimators: bool = False,
     name_suffix: str = "",
     grid_extension: Mapping[str, Sequence] | None = None,
+    previous: CachedEvaluation | None = None,
 ) -> EvaluationTask:
     """Return the cached evaluation of one configuration on one feature set.
 
@@ -581,7 +586,10 @@ def make_search_task(
     repeats of the full evaluation, also when only some of its splits are
     passed, so that the folds fitted first are reused later. grid_extension
     adds values to the grid, as the edge rule requires; it enters the
-    signature, and the name should mark it with name_suffix.
+    signature, and the name should mark it with name_suffix. With previous, the
+    evaluation of the same configuration before the extension, only the new
+    candidates are evaluated; the result is the one of the full extended search,
+    so the signature does not depend on it.
     """
     cut_level = effective_cut_level(algorithm, formulation, cut_level)
     max_iter_factor = effective_max_iter_factor(algorithm, max_iter_factor)
@@ -618,4 +626,7 @@ def make_search_task(
         f"{algorithm}__{formulation}__{feature_set}"
         f"__c{cut_level}__i{max_iter_factor}{name_suffix}"
     )
-    return EvaluationTask(name, search, X, y, splits, fields, keep_estimators)
+    previous_folds = previous.fold_results() if previous is not None else None
+    return EvaluationTask(
+        name, search, X, y, splits, fields, keep_estimators, previous_folds
+    )

@@ -5,6 +5,7 @@ import resource
 import sys
 import time
 import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -14,7 +15,7 @@ from numpy.typing import ArrayLike
 from scipy import stats
 from sklearn.base import BaseEstimator, clone
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import ParameterGrid, StratifiedKFold
 
 from piu_severity.config import RANDOM_SEED
 from piu_severity.evaluation.metrics import (
@@ -205,6 +206,173 @@ def evaluate_fold(
         "predictions": predictions,
         "cv_results": _cv_results_table(model),
         "estimator": best,
+    }
+
+
+def _plain(value: object) -> object:
+    """Return a numpy scalar as the equivalent Python value."""
+    return value.item() if isinstance(value, np.generic) else value
+
+
+def candidate_key(params: Mapping) -> tuple:
+    """Return a hashable, order-independent identifier of a set of parameters."""
+    return tuple(sorted((name, _plain(value)) for name, value in params.items()))
+
+
+def _table_candidates(table: pd.DataFrame) -> list[dict]:
+    """Return the parameters of each row of an inner-search results table."""
+    columns = [column for column in table.columns if column.startswith("param_")]
+    return [
+        {column.removeprefix("param_"): _plain(row[column]) for column in columns}
+        for _, row in table.iterrows()
+    ]
+
+
+def _best_index(scores: np.ndarray) -> int:
+    """Return the candidate an inner search keeps: the first of highest mean score.
+
+    Failed candidates (NaN) rank last, as in scikit-learn's searches.
+    """
+    if np.isnan(scores).all():
+        return 0
+    return int(np.argmax(np.where(np.isnan(scores), -np.inf, scores)))
+
+
+def evaluate_fold_extension(
+    search: BaseEstimator,
+    previous: Mapping,
+    X: pd.DataFrame,
+    levels: np.ndarray,
+    split: Split,
+    keep_estimator: bool = False,
+    show_convergence_warnings: bool = False,
+) -> dict:
+    """Evaluate one outer fold of a search whose grid extends an evaluated one.
+
+    previous is the result of evaluate_fold for the same fold with a grid
+    contained in search.param_grid. Only the new candidates go through the inner
+    cross-validation, which uses the same splits; their mean scores join the
+    stored ones, and the candidate kept is the one the full extended search
+    would keep: the first, in the order of the extended grid, with the highest
+    mean score. The model is refitted on the outer training rows only when that
+    candidate changed or the fitted estimator is requested. The result is
+    therefore the one of evaluate_fold with the extended grid, at the cost of the
+    new candidates.
+    """
+    if previous["row"]["test_hash"] != hash_indices(split.test):
+        raise ValueError("The previous result belongs to another split.")
+    stored = previous["cv_results"]
+    stored_scores = {
+        candidate_key(params): score
+        for params, score in zip(
+            _table_candidates(stored), stored["mean_test_score"], strict=True
+        )
+    }
+    grid = list(ParameterGrid(search.param_grid))
+    keys = [candidate_key(params) for params in grid]
+    if not set(stored_scores) <= set(keys):
+        raise ValueError("The previous grid is not contained in the extended grid.")
+    new = [
+        params
+        for params, key in zip(grid, keys, strict=True)
+        if key not in stored_scores
+    ]
+
+    X_train, y_train = X.iloc[split.train], levels[split.train]
+    start = time.perf_counter()
+    model_warnings = imputer_warnings = 0
+    n_pipeline_fits = 0
+    new_table = None
+    new_scores: dict[tuple, float] = {}
+    if new:
+        inner = clone(search).set_params(
+            param_grid=[{name: [value] for name, value in p.items()} for p in new],
+            refit=False,
+        )
+        model_warnings, imputer_warnings = _fit_recording_convergence(
+            inner, X_train, y_train, show_convergence_warnings
+        )
+        n_pipeline_fits += len(new) * inner.n_splits_
+        new_table = pd.DataFrame(inner.cv_results_).drop(columns="params")
+        new_scores = {
+            candidate_key(params): score
+            for params, score in zip(
+                inner.cv_results_["params"],
+                inner.cv_results_["mean_test_score"],
+                strict=True,
+            )
+        }
+
+    scores = np.array([stored_scores.get(key, new_scores.get(key)) for key in keys])
+    best = grid[_best_index(scores.astype(float))]
+    previous_best = previous["row"]["best_params"]
+    unchanged = candidate_key(best) == candidate_key(previous_best)
+
+    y_true = levels[split.test]
+    estimator = None
+    if unchanged and not keep_estimator:
+        predictions = previous["predictions"]
+        if not np.array_equal(predictions["position"].to_numpy(), split.test):
+            raise ValueError("The previous predictions belong to another split.")
+        y_pred = predictions["y_pred"].to_numpy()
+    else:
+        estimator = clone(search.estimator).set_params(**best)
+        refit_model, refit_imputer = _fit_recording_convergence(
+            estimator, X_train, y_train, show_convergence_warnings
+        )
+        model_warnings += refit_model
+        imputer_warnings += refit_imputer
+        n_pipeline_fits += 1
+        y_pred = as_levels(estimator.predict(X.iloc[split.test]))
+    fit_seconds = time.perf_counter() - start
+
+    combined = pd.concat(
+        [table for table in (stored, new_table) if table is not None],
+        ignore_index=True,
+    )
+    order = {key: position for position, key in enumerate(keys)}
+    combined["candidate"] = [
+        order[candidate_key(params)] for params in _table_candidates(combined)
+    ]
+    combined = combined.sort_values("candidate").reset_index(drop=True)
+    combined["rank_test_score"] = (
+        combined["mean_test_score"]
+        .fillna(combined["mean_test_score"].min() - 1)
+        .rank(ascending=False, method="min")
+        .astype(int)
+    )
+
+    row = {
+        "repeat": split.repeat,
+        "fold": split.fold,
+        "n_train": len(split.train),
+        "n_test": len(split.test),
+        "test_hash": hash_indices(split.test),
+        "qwk": quadratic_weighted_kappa(y_true, y_pred),
+        "fit_seconds": fit_seconds,
+        "best_params": dict(best),
+        "n_pipeline_fits": n_pipeline_fits,
+        "convergence_warnings_model": model_warnings,
+        "convergence_warnings_imputer": imputer_warnings,
+        "peak_memory_mb": peak_memory_mb(),
+        "new_candidates": len(new),
+        "best_changed": not unchanged,
+    }
+    if estimator is not None and hasattr(estimator, "memory"):
+        estimator.set_params(memory=None)
+    return {
+        "row": row,
+        "predictions": pd.DataFrame(
+            {
+                "repeat": split.repeat,
+                "fold": split.fold,
+                "position": split.test,
+                "y_true": y_true,
+                "y_pred": y_pred,
+            }
+        ),
+        "cv_results": combined.drop(columns="candidate"),
+        "estimator": estimator if keep_estimator else None,
     }
 
 
