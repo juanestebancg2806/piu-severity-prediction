@@ -9,7 +9,7 @@ search is run.
 
 import math
 import os
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 
 import pandas as pd
 from numpy.typing import ArrayLike
@@ -319,6 +319,25 @@ def _formulation_estimator(
     return FrankHallClassifier(base), "model__estimator__"
 
 
+def extend_grid(
+    grid: Mapping[str, list], extension: Mapping[str, Sequence] | None
+) -> dict[str, list]:
+    """Return the grid with the values of extension added and sorted.
+
+    Every parameter of extension must already be in the grid, and its values
+    must be new, so that an extension can only enlarge the search.
+    """
+    extended = {name: list(values) for name, values in grid.items()}
+    for name, values in (extension or {}).items():
+        if name not in extended:
+            raise ValueError(f"{name!r} is not a parameter of the grid.")
+        repeated = set(values) & set(extended[name])
+        if repeated:
+            raise ValueError(f"{name!r} already has the values {sorted(repeated)}.")
+        extended[name] = sorted([*extended[name], *values])
+    return extended
+
+
 def search_grid(
     algorithm: str, formulation: str, cut_level: int = 0
 ) -> dict[str, list]:
@@ -354,13 +373,15 @@ def make_search(
     memory: str | None = None,
     seed: int = RANDOM_SEED,
     n_jobs: int = 1,
+    grid_extension: Mapping[str, Sequence] | None = None,
 ) -> GridSearchCV | RandomizedSearchCV:
     """Return the inner search of one of the twelve configurations of the full search.
 
     The pipeline preprocesses the predictors with the strategy chosen in the
     inner loop and fits the formulation wrapper, which computes the level weights
     in each fit. memory caches the fitted preprocessing across candidates; it is
-    a folder path, ignored by version control.
+    a folder path, ignored by version control. grid_extension adds values to
+    parameters of the grid, as the edge rule requires.
     """
     _check_configuration(algorithm, formulation, cut_level)
     model, _ = _formulation_estimator(
@@ -373,7 +394,7 @@ def make_search(
         seed,
     )
     pipeline = Pipeline([("preprocess", preprocess), ("model", model)], memory=memory)
-    grid = search_grid(algorithm, formulation, cut_level)
+    grid = extend_grid(search_grid(algorithm, formulation, cut_level), grid_extension)
     if uses_random_search(algorithm, cut_level):
         return RandomizedSearchCV(
             pipeline,
@@ -549,6 +570,7 @@ def make_search_task(
     extra: Mapping | None = None,
     keep_estimators: bool = False,
     name_suffix: str = "",
+    grid_extension: Mapping[str, Sequence] | None = None,
 ) -> EvaluationTask:
     """Return the cached evaluation of one configuration on one feature set.
 
@@ -557,7 +579,9 @@ def make_search_task(
     run with another search never overwrites the folds of an earlier one, and a
     run with the same search reuses them. n_repeats must be the number of
     repeats of the full evaluation, also when only some of its splits are
-    passed, so that the folds fitted first are reused later.
+    passed, so that the folds fitted first are reused later. grid_extension
+    adds values to the grid, as the edge rule requires; it enters the
+    signature, and the name should mark it with name_suffix.
     """
     cut_level = effective_cut_level(algorithm, formulation, cut_level)
     max_iter_factor = effective_max_iter_factor(algorithm, max_iter_factor)
@@ -568,6 +592,7 @@ def make_search_task(
         cut_level=cut_level,
         max_iter_factor=max_iter_factor,
         memory=memory,
+        grid_extension=grid_extension,
     )
     config = {
         "algorithm": algorithm,
@@ -576,6 +601,10 @@ def make_search_task(
         "cut_level": cut_level,
         "max_iter_factor": max_iter_factor,
     }
+    if grid_extension:
+        config["grid_extension"] = {
+            name: list(values) for name, values in grid_extension.items()
+        }
     fields = evaluation_fields(
         search,
         X,

@@ -25,6 +25,10 @@ from piu_severity.models.pipelines import (
     convergence_warning_share,
     effective_cut_level,
     effective_max_iter_factor,
+    effective_cut_level,
+    effective_max_iter_factor,
+    extend_grid,
+    make_boosting_search,
     make_boosting_search,
     make_logistic_search,
     make_search,
@@ -426,3 +430,36 @@ def test_first_repeat_folds_are_reused_by_the_full_evaluation():
     ).fields
     full = make_search_task("linear", "multiclass", "main", X, y, splits).fields
     assert partial == full
+
+
+def test_grid_extension_adds_sorted_values_and_changes_the_signature():
+    X, y = _full_search_data()
+    splits = outer_splits(y)
+    name = "model__estimator__C"
+    search = make_search(
+        "linear", "multiclass", X.columns, grid_extension={name: [1e3]}
+    )
+    assert search.param_grid[name] == [1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 1e3]
+    base = make_search_task("linear", "multiclass", "main", X, y, splits)
+    extended = make_search_task(
+        "linear",
+        "multiclass",
+        "main",
+        X,
+        y,
+        splits,
+        grid_extension={name: [1e3]},
+        name_suffix="__extended",
+    )
+    assert extended.name == "linear__multiclass__main__c0__i1__extended"
+    assert extended.fields["config"]["grid_extension"] == {name: [1e3]}
+    assert extended.fields != base.fields
+
+
+def test_grid_extension_rejects_unknown_parameters_and_repeated_values():
+    grid = search_grid("linear", "multiclass")
+    with pytest.raises(ValueError, match="not a parameter"):
+        extend_grid(grid, {"model__estimator__gamma": [1.0]})
+    with pytest.raises(ValueError, match="already has"):
+        extend_grid(grid, {"model__estimator__C": [1.0]})
+    assert extend_grid(grid, None) == grid
