@@ -1,99 +1,72 @@
+"""Record of the selected configuration, shared with the later notebooks.
+
+Each evaluation in the record keeps what make_search_task needs to rebuild it
+(its configuration and name suffix), its cache name and the hash of its
+signature. A later notebook rebuilds the task with its own data and splits,
+checks that name and signature match, and loads the folds from the cache
+instead of fitting them again. The record holds no data: only names,
+parameters, hashes and aggregate results.
+"""
+
 import json
+import os
+from collections.abc import Mapping
+from pathlib import Path
 
-import numpy as np
-import pandas as pd
-import pytest
-
-from piu_severity.evaluation.persistence import run_configurations_cached
-from piu_severity.evaluation.validation import outer_splits
-from piu_severity.models.pipelines import make_search_task
-from piu_severity.models.registry import (
-    check_task,
-    load_record,
-    save_record,
-    task_arguments,
-    task_entry,
+from piu_severity.config import MODELS_DIR
+from piu_severity.evaluation.persistence import (
+    EvaluationTask,
+    canonical,
+    signature_hash,
 )
 
-FIXED = {"preprocess__strategy": "simple", "model__weight_power": np.float64(0.5)}
+SELECTED_CONFIGURATION_FILE = MODELS_DIR / "selected_configuration.json"
 
 
-def _data(seed: int = 0) -> tuple[pd.DataFrame, np.ndarray]:
-    rng = np.random.default_rng(seed)
-    y = rng.permutation(np.repeat(np.arange(4), (60, 30, 20, 10)))
-    X = pd.DataFrame(
-        {
-            "Basic_Demos-Enroll_Season": rng.choice(["Fall", "Spring"], size=len(y)),
-            "Basic_Demos-Age": 8 + 3 * y + rng.normal(size=len(y)),
-            "Basic_Demos-Sex": rng.integers(0, 2, size=len(y)).astype(float),
-        }
-    )
-    return X, y
-
-
-def _task(X, y, splits, **options):
-    return make_search_task(
-        "linear",
-        "threshold_regression",
-        "reference",
-        X,
-        y,
-        splits,
-        fixed_params=FIXED,
-        name_suffix="__fixed",
-        **options,
-    )
-
-
-def test_task_entry_rebuilds_the_same_task():
-    X, y = _data()
-    splits = outer_splits(y)
-    task = _task(X, y, splits)
-    entry = task_entry(task, "__fixed")
-    assert entry["name"] == task.name
-    assert entry["config"]["fixed_params"] == {
-        "model__weight_power": 0.5,
-        "preprocess__strategy": "simple",
+def task_entry(task: EvaluationTask, name_suffix: str = "") -> dict:
+    """Return the record of one cached evaluation built with make_search_task."""
+    if not task.name.endswith(name_suffix):
+        raise ValueError(f"{task.name!r} does not end with {name_suffix!r}.")
+    return {
+        "name": task.name,
+        "signature": signature_hash(task.fields),
+        "config": canonical(task.fields["config"]),
+        "name_suffix": name_suffix,
     }
-    rebuilt = make_search_task(X=X, y=y, splits=splits, **task_arguments(entry))
-    check_task(rebuilt, entry)
 
 
-def test_check_task_rejects_other_data_and_names():
-    X, y = _data()
-    splits = outer_splits(y)
-    entry = task_entry(_task(X, y, splits), "__fixed")
-    X_other = X.assign(**{"Basic_Demos-Age": X["Basic_Demos-Age"] + 1})
-    with pytest.raises(ValueError, match="signature"):
-        check_task(_task(X_other, y, splits), entry)
-    with pytest.raises(ValueError, match="is not"):
-        check_task(
-            make_search_task("linear", "multiclass", "reference", X, y, splits), entry
-        )
-    with pytest.raises(ValueError, match="does not end"):
-        task_entry(_task(X, y, splits), "__other")
+def task_arguments(entry: Mapping) -> dict:
+    """Return the keyword arguments of make_search_task that rebuild an entry.
+
+    The data, the splits and the execution options (memory, keep_estimators)
+    are passed apart, because they belong to the notebook that rebuilds it.
+    """
+    return {**entry["config"], "name_suffix": entry["name_suffix"]}
 
 
-def test_record_round_trip_is_plain_json(tmp_path):
-    X, y = _data()
-    entry = task_entry(_task(X, y, outer_splits(y)), "__fixed")
-    record = {"selected": entry, "mean_qwk": np.float64(0.365), "repeats": np.int64(5)}
-    path = save_record(record, tmp_path / "models" / "selected_configuration.json")
-    assert load_record(path) == json.loads(path.read_text(encoding="utf-8"))
-    loaded = load_record(path)
-    assert loaded["selected"] == entry
-    assert loaded["mean_qwk"] == pytest.approx(0.365)
-    assert loaded["repeats"] == 5
-    assert not list(path.parent.glob("*.tmp"))
+def check_task(task: EvaluationTask, entry: Mapping) -> None:
+    """Raise if a rebuilt task is not the evaluation recorded in entry.
+
+    A different signature means that the data, the splits' seed, the grid or a
+    library version changed, so the cached folds would not be reused.
+    """
+    if task.name != entry["name"]:
+        raise ValueError(f"Task {task.name!r} is not {entry['name']!r}.")
+    if signature_hash(task.fields) != entry["signature"]:
+        raise ValueError(f"{task.name!r} has another signature than the record.")
 
 
-def test_rebuilt_task_loads_the_cached_folds(tmp_path):
-    X, y = _data()
-    splits = outer_splits(y)[:2]
-    task = _task(X, y, splits)
-    run_configurations_cached([task], cache_dir=tmp_path)
-    entry = task_entry(task, "__fixed")
-    rebuilt = make_search_task(X=X, y=y, splits=splits, **task_arguments(entry))
-    check_task(rebuilt, entry)
-    result = run_configurations_cached([rebuilt], cache_dir=tmp_path)[rebuilt.name]
-    assert result.counts() == {"loaded": 2, "computed": 0}
+def save_record(record: Mapping, path: Path = SELECTED_CONFIGURATION_FILE) -> Path:
+    """Write the record as JSON, replacing any previous file atomically."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    text = json.dumps(canonical(record), indent=2, ensure_ascii=False)
+    temporary.write_text(text + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+    return path
+
+
+def load_record(path: Path = SELECTED_CONFIGURATION_FILE) -> dict:
+    """Read a record written by save_record."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))

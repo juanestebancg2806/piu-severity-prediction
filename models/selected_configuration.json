@@ -1,0 +1,155 @@
+{
+  "actigraphy_subset_evaluations": {
+    "main": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "main",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__main__c0__i1__fixed__actigraphy_subset",
+      "name_suffix": "__fixed__actigraphy_subset",
+      "signature": "2a4d56fb0bc7e72e0eb6354065709365dafe597922bd272bbf38f6d9531e6811"
+    },
+    "main_without_actigraphy": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "main_without_actigraphy",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__main_without_actigraphy__c0__i1__fixed__actigraphy_subset",
+      "name_suffix": "__fixed__actigraphy_subset",
+      "signature": "b7d95f7ea41b98299adae6f7080da00656f6eed0f138459db8e0ea62b9f3d447"
+    },
+    "reference": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "reference",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__reference__c0__i1__fixed__actigraphy_subset",
+      "name_suffix": "__fixed__actigraphy_subset",
+      "signature": "4487fd0c11097f89acc2cb123c10bd745ddc92003bd255bf29504a3aebf9f07e"
+    },
+    "reference_with_actigraphy": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "reference_with_actigraphy",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__reference_with_actigraphy__c0__i1__fixed__actigraphy_subset",
+      "name_suffix": "__fixed__actigraphy_subset",
+      "signature": "9e007408c8d22f8bb3f7a42f64a4de41a623d33455355147ebb8b16808b9b049"
+    }
+  },
+  "fixed_treatment": {
+    "model__weight_power": 0.5,
+    "preprocess__strategy": "iterative"
+  },
+  "fixed_treatment_evaluations": {
+    "main": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "main",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__main__c0__i1__fixed",
+      "name_suffix": "__fixed",
+      "signature": "c6fde4ba182d380705e1f7018c56ef97aeae436723383d5460d28a0de562d7e9"
+    },
+    "main_without_actigraphy": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "main_without_actigraphy",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__main_without_actigraphy__c0__i1__fixed",
+      "name_suffix": "__fixed",
+      "signature": "8082579191a705d8a2fc5609821aed848cfc90aaabc64c6c304eb121d83f20ac"
+    },
+    "reference": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "reference",
+        "fixed_params": {
+          "model__weight_power": 0.5,
+          "preprocess__strategy": "iterative"
+        },
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__reference__c0__i1__fixed",
+      "name_suffix": "__fixed",
+      "signature": "14b903c8c85e7e3e20a7f0783a6f24cbbac87efbf236eb3cf03582f504402811"
+    }
+  },
+  "hypotheses": {
+    "H2": "sin evidencia de mejora; aporte despreciable",
+    "H3": "sin evidencia de mejora; aporte despreciable"
+  },
+  "selected": {
+    "evaluation": {
+      "config": {
+        "algorithm": "linear",
+        "cut_level": 0,
+        "feature_set": "main",
+        "formulation": "threshold_regression",
+        "max_iter_factor": 1
+      },
+      "name": "linear__threshold_regression__main__c0__i1__models",
+      "name_suffix": "__models",
+      "signature": "7ded0540ac9e1322b70cd9c71318df73285fd3d9f09bfcd7f2e54c8ae4a386a3"
+    },
+    "grid": "original",
+    "mean_qwk": 0.3651561403608887,
+    "most_frequent_strategy": "iterative",
+    "qwk_sd_between_repeats": 0.00742411162393575,
+    "severe_recall": 0.0,
+    "severe_recall_unstable": false,
+    "underestimation_moderate_or_severe": 0.6830097087378642
+  },
+  "validation": {
+    "cache_version": 1,
+    "cut_level": 1,
+    "inner_splits": 3,
+    "outer_repeats": 5,
+    "outer_splits": 5,
+    "random_seed": 42
+  }
+}

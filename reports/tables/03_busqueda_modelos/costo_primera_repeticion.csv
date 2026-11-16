@@ -1,0 +1,13 @@
+algoritmo,formulación,cargadas,calculadas,minutos por partición (media),minutos por partición (máximo),memoria máxima por proceso (MB),advertencias del modelo,advertencias del imputador,ajustes del modelo sin convergencia (%)
+gradient boosting,regresión con umbrales,5,0,26.911034053753053,27.734506883332507,206.109375,0,12,0.0
+gradient boosting,Frank y Hall,5,0,22.402403951389907,22.710279302783118,205.421875,0,16,0.0
+SVM con kernel radial,regresión con umbrales,5,0,5.363359800976468,5.609861259033399,214.328125,0,20,0.0
+SVM con kernel radial,Frank y Hall,5,0,3.934430915279857,4.039346477783208,220.484375,0,0,0.0
+gradient boosting,multiclase,5,0,9.738697079723158,9.976486303483641,236.84375,0,1,0.0
+lineal regularizado,regresión con umbrales,5,0,0.602567242916751,0.6092300506832544,204.078125,55,0,1.2672811059907834
+lineal regularizado,Frank y Hall,5,0,10.008302910829855,10.339574288883401,236.84375,665,0,17.523056653491437
+SVM con kernel radial,multiclase,5,0,1.423542400696703,1.4293313312499474,256.84375,0,0,0.0
+lineal regularizado,multiclase,5,0,15.05488405667032,15.81493436388361,224.78125,564,0,44.58498023715415
+bosque aleatorio,regresión con umbrales,5,0,11.400895838889992,11.481359790283022,332.640625,0,1,0.0
+bosque aleatorio,Frank y Hall,5,0,11.36848301749987,11.567317266666214,342.796875,0,0,0.0
+bosque aleatorio,multiclase,5,0,5.000806028056735,5.146675040983245,342.15625,0,0,0.0

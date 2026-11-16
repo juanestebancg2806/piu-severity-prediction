@@ -16,6 +16,7 @@ from piu_severity.evaluation import persistence
 from piu_severity.evaluation.persistence import (
     CacheWarning,
     EvaluationTask,
+    cached_size,
     clear_pipeline_memory,
     directory_size,
     evaluation_fields,
@@ -550,3 +551,17 @@ def test_workers_that_keep_dying_raise_and_keep_saved_folds(tmp_path, monkeypatc
         pytest.raises(RuntimeError, match="kept dying"),
     ):
         run_configurations_cached([task], cache_dir=tmp_path, n_jobs=4)
+
+
+def test_cached_size_counts_only_the_files_of_one_task(tmp_path):
+    first, second = (
+        _task("first", CountingClassifier()),
+        _task("second", CountingClassifier()),
+    )
+    assert cached_size(first, tmp_path) == 0
+    run_configurations_cached([first], cache_dir=tmp_path)
+    size = cached_size(first, tmp_path)
+    assert size == directory_size(tmp_path) > 0
+    run_configurations_cached([second], cache_dir=tmp_path)
+    assert cached_size(first, tmp_path) == size
+    assert directory_size(tmp_path) > size

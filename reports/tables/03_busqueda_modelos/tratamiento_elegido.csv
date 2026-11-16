@@ -1,0 +1,13 @@
+algoritmo,formulación,estrategia nativa,estrategia simple con indicadores,estrategia iterativa,α = 0.5,α = 1
+lineal regularizado,multiclase,0,20,5,25,0
+lineal regularizado,Frank y Hall,0,18,7,6,19
+gradient boosting,regresión con umbrales,4,11,10,23,2
+gradient boosting,Frank y Hall,8,8,9,4,21
+gradient boosting,multiclase,5,5,15,18,7
+SVM con kernel radial,regresión con umbrales,0,5,20,0,25
+SVM con kernel radial,Frank y Hall,0,16,9,0,25
+SVM con kernel radial,multiclase,0,8,17,0,25
+lineal regularizado,regresión con umbrales,0,5,20,25,0
+bosque aleatorio,regresión con umbrales,0,7,18,18,7
+bosque aleatorio,Frank y Hall,0,12,13,0,25
+bosque aleatorio,multiclase,0,7,18,7,18

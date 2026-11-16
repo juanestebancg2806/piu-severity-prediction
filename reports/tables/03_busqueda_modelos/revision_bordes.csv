@@ -1,0 +1,49 @@
+algoritmo,formulación,hiperparámetro,borde,valor del borde,particiones en el borde,valor de la ampliación,se amplía
+lineal regularizado,multiclase,C,inferior,0.0001,0,1e-05,False
+lineal regularizado,multiclase,C,superior,100.0,2,1000.0,False
+lineal regularizado,multiclase,l1_ratio,inferior,0.0,10,,False
+lineal regularizado,multiclase,l1_ratio,superior,1.0,7,,False
+lineal regularizado,Frank y Hall,C,inferior,0.0001,0,1e-05,False
+lineal regularizado,Frank y Hall,C,superior,100.0,8,1000.0,True
+lineal regularizado,Frank y Hall,l1_ratio,inferior,0.0,5,,False
+lineal regularizado,Frank y Hall,l1_ratio,superior,1.0,15,,False
+gradient boosting,regresión con umbrales,max_leaf_nodes,inferior,7,22,3,True
+gradient boosting,regresión con umbrales,max_leaf_nodes,superior,31,0,64,False
+gradient boosting,regresión con umbrales,min_samples_leaf,inferior,10,8,3,True
+gradient boosting,regresión con umbrales,min_samples_leaf,superior,80,8,213,True
+gradient boosting,regresión con umbrales,l2_regularization,inferior,0.0,6,,False
+gradient boosting,regresión con umbrales,l2_regularization,superior,10.0,6,100.0,True
+gradient boosting,Frank y Hall,max_leaf_nodes,inferior,7,15,3,True
+gradient boosting,Frank y Hall,max_leaf_nodes,superior,31,3,64,False
+gradient boosting,Frank y Hall,min_samples_leaf,inferior,10,12,3,True
+gradient boosting,Frank y Hall,min_samples_leaf,superior,80,1,213,False
+gradient boosting,Frank y Hall,l2_regularization,inferior,0.0,11,,False
+gradient boosting,Frank y Hall,l2_regularization,superior,10.0,6,100.0,True
+gradient boosting,multiclase,max_leaf_nodes,inferior,7,18,3,True
+gradient boosting,multiclase,max_leaf_nodes,superior,31,1,64,False
+gradient boosting,multiclase,min_samples_leaf,inferior,10,7,3,True
+gradient boosting,multiclase,min_samples_leaf,superior,80,13,213,True
+gradient boosting,multiclase,l2_regularization,inferior,0.0,7,,False
+gradient boosting,multiclase,l2_regularization,superior,10.0,11,100.0,True
+SVM con kernel radial,regresión con umbrales,C,inferior,0.01,0,0.001,False
+SVM con kernel radial,regresión con umbrales,C,superior,1000.0,2,10000.0,False
+SVM con kernel radial,regresión con umbrales,gamma,inferior,0.0001,6,1e-05,True
+SVM con kernel radial,regresión con umbrales,gamma,superior,1.0,0,10.0,False
+SVM con kernel radial,Frank y Hall,C,inferior,0.01,0,0.001,False
+SVM con kernel radial,Frank y Hall,C,superior,1000.0,3,10000.0,False
+SVM con kernel radial,Frank y Hall,gamma,inferior,0.0001,7,1e-05,True
+SVM con kernel radial,Frank y Hall,gamma,superior,1.0,0,10.0,False
+SVM con kernel radial,multiclase,C,inferior,0.01,0,0.001,False
+SVM con kernel radial,multiclase,C,superior,1000.0,0,10000.0,False
+SVM con kernel radial,multiclase,gamma,inferior,0.0001,0,1e-05,False
+SVM con kernel radial,multiclase,gamma,superior,1.0,0,10.0,False
+lineal regularizado,regresión con umbrales,alpha,inferior,0.0001,0,1e-05,False
+lineal regularizado,regresión con umbrales,alpha,superior,10.0,0,100.0,False
+lineal regularizado,regresión con umbrales,l1_ratio,inferior,0.0,4,,False
+lineal regularizado,regresión con umbrales,l1_ratio,superior,1.0,13,,False
+bosque aleatorio,regresión con umbrales,min_samples_leaf,inferior,1,0,,False
+bosque aleatorio,regresión con umbrales,min_samples_leaf,superior,50,9,125,True
+bosque aleatorio,Frank y Hall,min_samples_leaf,inferior,1,0,,False
+bosque aleatorio,Frank y Hall,min_samples_leaf,superior,50,0,125,False
+bosque aleatorio,multiclase,min_samples_leaf,inferior,1,5,,False
+bosque aleatorio,multiclase,min_samples_leaf,superior,50,5,125,True

@@ -582,3 +582,13 @@ def clear_pipeline_memory(path: Path) -> None:
         raise ValueError(f"{path} is not inside a {PIPELINE_MEMORY_FOLDER!r} folder.")
     if path.exists():
         shutil.rmtree(path)
+
+
+def cached_size(task: EvaluationTask, cache_dir: Path) -> int:
+    """Return the size in bytes of the cached folds of one task (0 if missing).
+
+    Unlike directory_size, it measures only the files of this task, so it does
+    not change when other evaluations are added to the same folder.
+    """
+    paths = (_fold_path(Path(cache_dir), task.name, split) for split in task.splits)
+    return sum(path.stat().st_size for path in paths if path.is_file())
