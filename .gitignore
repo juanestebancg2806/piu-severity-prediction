@@ -10,6 +10,8 @@ data/processed/*
 # Trained model artifacts
 models/*
 !models/.gitkeep
+# Record of the selected configuration: names, parameters and hashes, no data
+!models/selected_configuration.json
 
 # Credentials
 kaggle.json
