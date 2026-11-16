@@ -27,6 +27,7 @@ from piu_severity.models.pipelines import (
     effective_cut_level,
     effective_max_iter_factor,
     extend_grid,
+    fix_grid,
     make_boosting_search,
     make_logistic_search,
     make_search,
@@ -490,3 +491,57 @@ def test_every_possible_grid_extension_fits():
             search.estimator.set_params(model__estimator__n_estimators=20)
         predictions = search.fit(X, y).predict(X)
         assert set(np.unique(predictions)) <= {0, 1, 2, 3}
+
+
+def test_fixed_params_keep_one_value_and_enter_the_signature():
+    X, y = _full_search_data()
+    splits = outer_splits(y)
+    fixed = {"preprocess__strategy": "iterative", "model__weight_power": 0.5}
+    search = make_search(
+        "linear", "threshold_regression", X.columns, fixed_params=fixed
+    )
+    assert search.param_grid["preprocess__strategy"] == ["iterative"]
+    assert search.param_grid["model__weight_power"] == [0.5]
+    full = search_grid("linear", "threshold_regression")
+    assert (
+        search.param_grid["model__estimator__alpha"] == full["model__estimator__alpha"]
+    )
+    task = make_search_task(
+        "linear",
+        "threshold_regression",
+        "reference",
+        X,
+        y,
+        splits,
+        fixed_params=fixed,
+        name_suffix="__fixed",
+    )
+    assert task.name == "linear__threshold_regression__reference__c0__i1__fixed"
+    assert task.fields["config"]["fixed_params"] == fixed
+    unfixed = make_search_task(
+        "linear", "threshold_regression", "reference", X, y, splits
+    )
+    assert task.fields != unfixed.fields
+
+
+def test_fix_grid_rejects_unknown_parameters_and_values():
+    grid = search_grid("linear", "threshold_regression")
+    with pytest.raises(ValueError, match="not a parameter"):
+        fix_grid(grid, {"model__estimator__C": 1.0})
+    with pytest.raises(ValueError, match="not a value"):
+        fix_grid(grid, {"model__weight_power": 0.25})
+    assert fix_grid(grid, None) == grid
+
+
+def test_fixed_params_apply_after_the_grid_extension():
+    X, _ = _full_search_data()
+    name = "model__estimator__max_leaf_nodes"
+    search = make_search(
+        "gradient_boosting",
+        "threshold_regression",
+        X.columns,
+        grid_extension={name: [3]},
+        fixed_params={"preprocess__strategy": "native", name: 3},
+    )
+    assert search.param_grid[name] == [3]
+    assert search.param_grid["preprocess__strategy"] == ["native"]

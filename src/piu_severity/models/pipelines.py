@@ -342,6 +342,25 @@ def extend_grid(
     return extended
 
 
+def fix_grid(
+    grid: Mapping[str, list], fixed: Mapping[str, object] | None
+) -> dict[str, list]:
+    """Return the grid with some parameters fixed to one of their values.
+
+    Used to train a selected configuration with other feature sets: its
+    treatment of the data stays fixed and the rest of the grid is searched
+    again. A fixed value must belong to the grid.
+    """
+    restricted = {name: list(values) for name, values in grid.items()}
+    for name, value in (fixed or {}).items():
+        if name not in restricted:
+            raise ValueError(f"{name!r} is not a parameter of the grid.")
+        if value not in restricted[name]:
+            raise ValueError(f"{value!r} is not a value of {name!r} in the grid.")
+        restricted[name] = [value]
+    return restricted
+
+
 def search_grid(
     algorithm: str, formulation: str, cut_level: int = 0
 ) -> dict[str, list]:
@@ -378,6 +397,7 @@ def make_search(
     seed: int = RANDOM_SEED,
     n_jobs: int = 1,
     grid_extension: Mapping[str, Sequence] | None = None,
+    fixed_params: Mapping[str, object] | None = None,
 ) -> GridSearchCV | RandomizedSearchCV:
     """Return the inner search of one of the twelve configurations of the full search.
 
@@ -385,7 +405,8 @@ def make_search(
     inner loop and fits the formulation wrapper, which computes the level weights
     in each fit. memory caches the fitted preprocessing across candidates; it is
     a folder path, ignored by version control. grid_extension adds values to
-    parameters of the grid, as the edge rule requires.
+    parameters of the grid, as the edge rule requires, and fixed_params then
+    keeps a single value of some parameters.
     """
     _check_configuration(algorithm, formulation, cut_level)
     model, _ = _formulation_estimator(
@@ -398,7 +419,10 @@ def make_search(
         seed,
     )
     pipeline = Pipeline([("preprocess", preprocess), ("model", model)], memory=memory)
-    grid = extend_grid(search_grid(algorithm, formulation, cut_level), grid_extension)
+    grid = fix_grid(
+        extend_grid(search_grid(algorithm, formulation, cut_level), grid_extension),
+        fixed_params,
+    )
     if uses_random_search(algorithm, cut_level):
         return RandomizedSearchCV(
             pipeline,
@@ -576,6 +600,7 @@ def make_search_task(
     name_suffix: str = "",
     grid_extension: Mapping[str, Sequence] | None = None,
     previous: CachedEvaluation | None = None,
+    fixed_params: Mapping[str, object] | None = None,
 ) -> EvaluationTask:
     """Return the cached evaluation of one configuration on one feature set.
 
@@ -589,7 +614,9 @@ def make_search_task(
     signature, and the name should mark it with name_suffix. With previous, the
     evaluation of the same configuration before the extension, only the new
     candidates are evaluated; the result is the one of the full extended search,
-    so the signature does not depend on it.
+    so the signature does not depend on it. fixed_params keeps one value of some
+    parameters, such as the treatment of a selected configuration; it enters
+    the signature, and the name should mark it with name_suffix.
     """
     cut_level = effective_cut_level(algorithm, formulation, cut_level)
     max_iter_factor = effective_max_iter_factor(algorithm, max_iter_factor)
@@ -601,6 +628,7 @@ def make_search_task(
         max_iter_factor=max_iter_factor,
         memory=memory,
         grid_extension=grid_extension,
+        fixed_params=fixed_params,
     )
     config = {
         "algorithm": algorithm,
@@ -613,6 +641,8 @@ def make_search_task(
         config["grid_extension"] = {
             name: list(values) for name, values in grid_extension.items()
         }
+    if fixed_params:
+        config["fixed_params"] = dict(fixed_params)
     fields = evaluation_fields(
         search,
         X,
