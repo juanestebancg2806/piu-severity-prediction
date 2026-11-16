@@ -1,0 +1,5 @@
+análisis,hipótesis,diferencia media de QWK,"valor p, superioridad",límite superior unilateral del 95 %,"valor p, aporte despreciable","valor p ajustado (Holm), superioridad","valor p ajustado (Holm), aporte despreciable",conclusión
+tratamiento fijo,H2: principal frente a referencia,0.00200777872835642,0.4416101962406482,0.025145872668911773,0.024698996378525608,0.8832203924812964,0.024698996378525608,sin evidencia de mejora; aporte despreciable
+tratamiento fijo,H3: principal frente a principal sin actigrafía,-0.003148697238649083,0.6190336740920219,0.014432307516425161,0.0018037712150705731,0.8832203924812964,0.0036075424301411463,sin evidencia de mejora; aporte despreciable
+tratamiento elegido en cada partición,H2: principal frente a referencia,-0.001437130494531118,0.5410845280777306,0.022146280492379204,0.015870820290877503,1.0,0.015870820290877503,sin evidencia de mejora; aporte despreciable
+tratamiento elegido en cada partición,H3: principal frente a principal sin actigrafía,-0.0013585154955284074,0.5446984856445158,0.019125240721162364,0.00751851716885051,1.0,0.01503703433770102,sin evidencia de mejora; aporte despreciable

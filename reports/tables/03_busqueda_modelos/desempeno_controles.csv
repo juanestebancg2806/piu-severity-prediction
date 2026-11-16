@@ -1,0 +1,3 @@
+control,QWK,QWK (desviación entre repeticiones),QWK mínimo por partición,QWK máximo por partición,recall ninguno,recall leve,recall moderado,recall severo,subestimación moderado o severo
+clase mayoritaria,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0
+aleatorio estratificado,-0.01047569322609049,0.021923302793720435,-0.07759591138328514,0.08166221284049313,0.5864491844416563,0.2726027397260274,0.12275132275132275,0.0058823529411764705,0.8742718446601941

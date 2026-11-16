@@ -120,3 +120,13 @@ def actigraphy_features(
     return summary.loc[usable, list(ACTIGRAPHY_FEATURES)].rename(
         columns=ACTIGRAPHY_FEATURES
     )
+
+
+def usable_actigraphy_mask(data: pd.DataFrame) -> pd.Series:
+    """Return True for the participants with any actigraphy feature observed.
+
+    build_analytic_dataset leaves every actigraphy feature missing for the
+    participants without a usable series; a usable series can still lack one
+    feature (for example, no wear time at night).
+    """
+    return data[list(ACTIGRAPHY_FEATURES.values())].notna().any(axis="columns")

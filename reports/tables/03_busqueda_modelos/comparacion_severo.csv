@@ -1,0 +1,4 @@
+comparada con,"recall severo, seleccionada","recall severo, comparada",diferencia,participantes con distinta tasa,valor p (bilateral),"repeticiones con McNemar p < 0,05",valor p ajustado (Holm)
+"SVM con kernel radial, regresión con umbrales",0.0,0.029411764705882353,-0.029411764705882353,3,0.25277472252774724,0,0.5055494450554945
+"bosque aleatorio, regresión con umbrales",0.0,0.0,0.0,0,1.0,0,1.0
+"gradient boosting, regresión con umbrales",0.0,0.03529411764705882,-0.03529411764705882,6,0.031996800319968,0,0.09599040095990401

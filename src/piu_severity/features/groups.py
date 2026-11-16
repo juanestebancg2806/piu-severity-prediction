@@ -133,3 +133,23 @@ def experiment_feature_sets(columns: Iterable[str]) -> dict[str, list[str]]:
         "main_without_actigraphy": drop_instruments(main, [ACTIGRAPHY_INSTRUMENT]),
         "complementary": model_feature_columns(columns, "complementary"),
     }
+
+
+def actigraphy_subset_feature_sets(columns: Iterable[str]) -> dict[str, list[str]]:
+    """Return the predictors compared within the participants with actigraphy.
+
+    reference_with_actigraphy adds the actigraphy features to the reference set,
+    which isolates their contribution over age, sex and enrollment season.
+    """
+    sets = experiment_feature_sets(columns)
+    actigraphy = [
+        column
+        for column in sets["main"]
+        if instrument_of(column) == ACTIGRAPHY_INSTRUMENT
+    ]
+    return {
+        "reference": sets["reference"],
+        "reference_with_actigraphy": [*sets["reference"], *actigraphy],
+        "main_without_actigraphy": sets["main_without_actigraphy"],
+        "main": sets["main"],
+    }

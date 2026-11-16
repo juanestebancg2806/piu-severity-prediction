@@ -2,14 +2,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from piu_severity.config import ACTIGRAPHY_SUMMARY_FILE, RAW_DATA_DIR, TRAIN_FILE
 from piu_severity.features.actigraphy import (
     ACTIGRAPHY_FEATURES,
     actigraphy_features,
     is_usable,
     load_actigraphy_summary,
+    usable_actigraphy_mask,
 )
 from piu_severity.features.build import add_paq_total, build_analytic_dataset
-from piu_severity.features.groups import PAQ_TOTAL_COLUMN
+from piu_severity.features.groups import PAQ_TOTAL_COLUMN, TARGET_COLUMN
 
 
 def _summary() -> pd.DataFrame:
@@ -98,3 +100,35 @@ def test_load_actigraphy_summary_reuses_matching_cache(tmp_path):
 
     extended = load_actigraphy_summary(["p1", "p2", "p3"], cache_path, series_dir)
     assert extended.index.tolist() == ["p1", "p2", "p3"]
+
+
+def test_usable_actigraphy_mask_accepts_a_partially_observed_series():
+    data = pd.DataFrame(
+        {
+            "Basic_Demos-Age": [10.0, 11.0, 12.0],
+            "Actigraphy-ENMO_Day": [0.05, np.nan, 0.07],
+            "Actigraphy-ENMO_Night": [0.01, np.nan, np.nan],
+            "Actigraphy-Wear_Hours": [20.0, np.nan, 12.0],
+        }
+    )
+    assert usable_actigraphy_mask(data).tolist() == [True, False, True]
+
+
+@pytest.mark.skipif(
+    not (RAW_DATA_DIR / TRAIN_FILE).is_file() or not ACTIGRAPHY_SUMMARY_FILE.is_file(),
+    reason="raw data or actigraphy summary not available",
+)
+def test_actigraphy_subpopulation_is_a_proper_subset_with_every_level():
+    from piu_severity.data.clean import clean_values
+    from piu_severity.data.load import list_actigraphy_ids, load_train
+
+    train = load_train()
+    labeled = train[train[TARGET_COLUMN].notna()].reset_index(drop=True)
+    data = build_analytic_dataset(
+        clean_values(labeled), load_actigraphy_summary(list_actigraphy_ids())
+    )
+    mask = usable_actigraphy_mask(data)
+    actigraphy = data[list(ACTIGRAPHY_FEATURES.values())]
+    assert 0 < mask.sum() < len(data)
+    assert actigraphy[~mask].isna().all().all()
+    assert set(data.loc[mask, TARGET_COLUMN].astype(int)) == {0, 1, 2, 3}

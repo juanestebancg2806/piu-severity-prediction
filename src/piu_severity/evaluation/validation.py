@@ -1,15 +1,21 @@
 """Repeated nested cross-validation, per-repeat summaries and paired comparisons."""
 
 import hashlib
+import resource
+import sys
 import time
+import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 from numpy.typing import ArrayLike
 from scipy import stats
 from sklearn.base import BaseEstimator, clone
-from sklearn.model_selection import StratifiedKFold
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.model_selection import ParameterGrid, StratifiedKFold
 
 from piu_severity.config import RANDOM_SEED
 from piu_severity.evaluation.metrics import (
@@ -24,6 +30,17 @@ from piu_severity.evaluation.metrics import (
 N_OUTER_SPLITS = 5
 N_OUTER_REPEATS = 5
 N_INNER_SPLITS = 3
+FOLD_COLUMNS: tuple[str, ...] = (
+    "repeat",
+    "fold",
+    "n_train",
+    "n_test",
+    "test_hash",
+    "qwk",
+    "fit_seconds",
+    "best_params",
+)
+IMPUTER_WARNING_MARKER = "IterativeImputer"
 
 
 @dataclass(frozen=True)
@@ -78,56 +95,315 @@ def split_level_counts(
     return pd.DataFrame(rows).set_index(["repeat", "fold"])
 
 
-def _hash_indices(indices: np.ndarray) -> str:
+def hash_indices(indices: np.ndarray) -> str:
     """Return a fingerprint of a set of row positions, independent of their order."""
     ordered = np.sort(np.asarray(indices, dtype=np.int64))
     return hashlib.sha1(ordered.tobytes()).hexdigest()
 
 
+def peak_memory_mb() -> float:
+    """Return the peak resident memory of the current process, in megabytes."""
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # macOS reports bytes; Linux reports kilobytes.
+    return peak / 1024**2 if sys.platform == "darwin" else peak / 1024
+
+
+def _count_pipeline_fits(model: BaseEstimator) -> int:
+    """Return the pipeline fits of an inner search, refit included; 1 otherwise."""
+    if not hasattr(model, "cv_results_"):
+        return 1
+    refit = 1 if getattr(model, "refit", False) else 0
+    return len(model.cv_results_["params"]) * model.n_splits_ + refit
+
+
+def _fit_recording_convergence(
+    model: BaseEstimator, X: pd.DataFrame, y: np.ndarray, show: bool = False
+) -> tuple[int, int]:
+    """Fit the model and count its convergence warnings by source.
+
+    Warnings raised in parallel workers never reach the parent process, so they
+    are counted where the fit happens. Other warnings are emitted again, and so
+    are convergence warnings when show is True.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ConvergenceWarning)
+        model.fit(X, y)
+    model_warnings = imputer_warnings = 0
+    for warning in caught:
+        is_convergence = issubclass(warning.category, ConvergenceWarning)
+        if show or not is_convergence:
+            warnings.warn_explicit(
+                warning.message, warning.category, warning.filename, warning.lineno
+            )
+        if not is_convergence:
+            continue
+        if IMPUTER_WARNING_MARKER in str(warning.message):
+            imputer_warnings += 1
+        else:
+            model_warnings += 1
+    return model_warnings, imputer_warnings
+
+
+def _cv_results_table(model: BaseEstimator) -> pd.DataFrame | None:
+    """Return the inner-search results without the column of parameter objects."""
+    if not hasattr(model, "cv_results_"):
+        return None
+    table = pd.DataFrame(model.cv_results_)
+    return table.drop(columns="params")
+
+
+def evaluate_fold(
+    estimator: BaseEstimator,
+    X: pd.DataFrame,
+    levels: np.ndarray,
+    split: Split,
+    keep_estimator: bool = False,
+    show_convergence_warnings: bool = False,
+) -> dict:
+    """Fit a fresh clone of estimator on one outer fold and evaluate it.
+
+    Returns the fold row (with timing, convergence warnings and peak memory), the
+    out-of-fold predictions, the inner-search results and, when requested, the
+    fitted best estimator.
+    """
+    model = clone(estimator)
+    start = time.perf_counter()
+    model_warnings, imputer_warnings = _fit_recording_convergence(
+        model, X.iloc[split.train], levels[split.train], show_convergence_warnings
+    )
+    fit_seconds = time.perf_counter() - start
+    y_true = levels[split.test]
+    y_pred = as_levels(model.predict(X.iloc[split.test]))
+    row = {
+        "repeat": split.repeat,
+        "fold": split.fold,
+        "n_train": len(split.train),
+        "n_test": len(split.test),
+        "test_hash": hash_indices(split.test),
+        "qwk": quadratic_weighted_kappa(y_true, y_pred),
+        "fit_seconds": fit_seconds,
+        "best_params": getattr(model, "best_params_", None),
+        "n_pipeline_fits": _count_pipeline_fits(model),
+        "convergence_warnings_model": model_warnings,
+        "convergence_warnings_imputer": imputer_warnings,
+        "peak_memory_mb": peak_memory_mb(),
+    }
+    predictions = pd.DataFrame(
+        {
+            "repeat": split.repeat,
+            "fold": split.fold,
+            "position": split.test,
+            "y_true": y_true,
+            "y_pred": y_pred,
+        }
+    )
+    best = getattr(model, "best_estimator_", model) if keep_estimator else None
+    if best is not None and hasattr(best, "memory"):
+        # The cache folder of the fitting machine is not needed to predict.
+        best.set_params(memory=None)
+    return {
+        "row": row,
+        "predictions": predictions,
+        "cv_results": _cv_results_table(model),
+        "estimator": best,
+    }
+
+
+def _plain(value: object) -> object:
+    """Return a numpy scalar as the equivalent Python value."""
+    return value.item() if isinstance(value, np.generic) else value
+
+
+def candidate_key(params: Mapping) -> tuple:
+    """Return a hashable, order-independent identifier of a set of parameters."""
+    return tuple(sorted((name, _plain(value)) for name, value in params.items()))
+
+
+def _table_candidates(table: pd.DataFrame) -> list[dict]:
+    """Return the parameters of each row of an inner-search results table."""
+    columns = [column for column in table.columns if column.startswith("param_")]
+    return [
+        {column.removeprefix("param_"): _plain(row[column]) for column in columns}
+        for _, row in table.iterrows()
+    ]
+
+
+def _best_index(scores: np.ndarray) -> int:
+    """Return the candidate an inner search keeps: the first of highest mean score.
+
+    Failed candidates (NaN) rank last, as in scikit-learn's searches.
+    """
+    if np.isnan(scores).all():
+        return 0
+    return int(np.argmax(np.where(np.isnan(scores), -np.inf, scores)))
+
+
+def evaluate_fold_extension(
+    search: BaseEstimator,
+    previous: Mapping,
+    X: pd.DataFrame,
+    levels: np.ndarray,
+    split: Split,
+    keep_estimator: bool = False,
+    show_convergence_warnings: bool = False,
+) -> dict:
+    """Evaluate one outer fold of a search whose grid extends an evaluated one.
+
+    previous is the result of evaluate_fold for the same fold with a grid
+    contained in search.param_grid. Only the new candidates go through the inner
+    cross-validation, which uses the same splits; their mean scores join the
+    stored ones, and the candidate kept is the one the full extended search
+    would keep: the first, in the order of the extended grid, with the highest
+    mean score. The model is refitted on the outer training rows only when that
+    candidate changed or the fitted estimator is requested. The result is
+    therefore the one of evaluate_fold with the extended grid, at the cost of the
+    new candidates.
+    """
+    if previous["row"]["test_hash"] != hash_indices(split.test):
+        raise ValueError("The previous result belongs to another split.")
+    stored = previous["cv_results"]
+    stored_scores = {
+        candidate_key(params): score
+        for params, score in zip(
+            _table_candidates(stored), stored["mean_test_score"], strict=True
+        )
+    }
+    grid = list(ParameterGrid(search.param_grid))
+    keys = [candidate_key(params) for params in grid]
+    if not set(stored_scores) <= set(keys):
+        raise ValueError("The previous grid is not contained in the extended grid.")
+    new = [
+        params
+        for params, key in zip(grid, keys, strict=True)
+        if key not in stored_scores
+    ]
+
+    X_train, y_train = X.iloc[split.train], levels[split.train]
+    start = time.perf_counter()
+    model_warnings = imputer_warnings = 0
+    n_pipeline_fits = 0
+    new_table = None
+    new_scores: dict[tuple, float] = {}
+    if new:
+        inner = clone(search).set_params(
+            param_grid=[{name: [value] for name, value in p.items()} for p in new],
+            refit=False,
+        )
+        model_warnings, imputer_warnings = _fit_recording_convergence(
+            inner, X_train, y_train, show_convergence_warnings
+        )
+        n_pipeline_fits += len(new) * inner.n_splits_
+        new_table = pd.DataFrame(inner.cv_results_).drop(columns="params")
+        new_scores = {
+            candidate_key(params): score
+            for params, score in zip(
+                inner.cv_results_["params"],
+                inner.cv_results_["mean_test_score"],
+                strict=True,
+            )
+        }
+
+    scores = np.array([stored_scores.get(key, new_scores.get(key)) for key in keys])
+    best = grid[_best_index(scores.astype(float))]
+    previous_best = previous["row"]["best_params"]
+    unchanged = candidate_key(best) == candidate_key(previous_best)
+
+    y_true = levels[split.test]
+    estimator = None
+    if unchanged and not keep_estimator:
+        predictions = previous["predictions"]
+        if not np.array_equal(predictions["position"].to_numpy(), split.test):
+            raise ValueError("The previous predictions belong to another split.")
+        y_pred = predictions["y_pred"].to_numpy()
+    else:
+        estimator = clone(search.estimator).set_params(**best)
+        refit_model, refit_imputer = _fit_recording_convergence(
+            estimator, X_train, y_train, show_convergence_warnings
+        )
+        model_warnings += refit_model
+        imputer_warnings += refit_imputer
+        n_pipeline_fits += 1
+        y_pred = as_levels(estimator.predict(X.iloc[split.test]))
+    fit_seconds = time.perf_counter() - start
+
+    combined = pd.concat(
+        [table for table in (stored, new_table) if table is not None],
+        ignore_index=True,
+    )
+    order = {key: position for position, key in enumerate(keys)}
+    combined["candidate"] = [
+        order[candidate_key(params)] for params in _table_candidates(combined)
+    ]
+    combined = combined.sort_values("candidate").reset_index(drop=True)
+    combined["rank_test_score"] = (
+        combined["mean_test_score"]
+        .fillna(combined["mean_test_score"].min() - 1)
+        .rank(ascending=False, method="min")
+        .astype(int)
+    )
+
+    row = {
+        "repeat": split.repeat,
+        "fold": split.fold,
+        "n_train": len(split.train),
+        "n_test": len(split.test),
+        "test_hash": hash_indices(split.test),
+        "qwk": quadratic_weighted_kappa(y_true, y_pred),
+        "fit_seconds": fit_seconds,
+        "best_params": dict(best),
+        "n_pipeline_fits": n_pipeline_fits,
+        "convergence_warnings_model": model_warnings,
+        "convergence_warnings_imputer": imputer_warnings,
+        "peak_memory_mb": peak_memory_mb(),
+        "new_candidates": len(new),
+        "best_changed": not unchanged,
+    }
+    if estimator is not None and hasattr(estimator, "memory"):
+        estimator.set_params(memory=None)
+    return {
+        "row": row,
+        "predictions": pd.DataFrame(
+            {
+                "repeat": split.repeat,
+                "fold": split.fold,
+                "position": split.test,
+                "y_true": y_true,
+                "y_pred": y_pred,
+            }
+        ),
+        "cv_results": combined.drop(columns="candidate"),
+        "estimator": estimator if keep_estimator else None,
+    }
+
+
 def run_nested_cv(
-    estimator: BaseEstimator, X: pd.DataFrame, y: ArrayLike, splits: list[Split]
+    estimator: BaseEstimator,
+    X: pd.DataFrame,
+    y: ArrayLike,
+    splits: list[Split],
+    n_jobs: int | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Fit a fresh clone of estimator on every outer fold and evaluate it.
 
     The estimator carries its own inner search (for example, a GridSearchCV), so
-    every tuning decision uses only the outer training rows.
+    every tuning decision uses only the outer training rows. With n_jobs, the
+    outer folds run in parallel; keep the inner search sequential then.
+    Convergence warnings are shown as they occur, as before this option existed.
     Returns one row of results per fold and the out-of-fold predictions. The
     predictions are row-level: keep them out of version control.
     """
     levels = as_levels(y)
-    fold_rows = []
-    prediction_frames = []
-    for split in splits:
-        model = clone(estimator)
-        start = time.perf_counter()
-        model.fit(X.iloc[split.train], levels[split.train])
-        fit_seconds = time.perf_counter() - start
-        y_true = levels[split.test]
-        y_pred = as_levels(model.predict(X.iloc[split.test]))
-        fold_rows.append(
-            {
-                "repeat": split.repeat,
-                "fold": split.fold,
-                "n_train": len(split.train),
-                "n_test": len(split.test),
-                "test_hash": _hash_indices(split.test),
-                "qwk": quadratic_weighted_kappa(y_true, y_pred),
-                "fit_seconds": fit_seconds,
-                "best_params": getattr(model, "best_params_", None),
-            }
+    results = Parallel(n_jobs=n_jobs)(
+        delayed(evaluate_fold)(
+            estimator, X, levels, split, show_convergence_warnings=True
         )
-        prediction_frames.append(
-            pd.DataFrame(
-                {
-                    "repeat": split.repeat,
-                    "fold": split.fold,
-                    "position": split.test,
-                    "y_true": y_true,
-                    "y_pred": y_pred,
-                }
-            )
-        )
-    return pd.DataFrame(fold_rows), pd.concat(prediction_frames, ignore_index=True)
+        for split in splits
+    )
+    folds = pd.DataFrame([result["row"] for result in results])[list(FOLD_COLUMNS)]
+    predictions = pd.concat(
+        [result["predictions"] for result in results], ignore_index=True
+    )
+    return folds, predictions
 
 
 def summarize_by_repeat(folds: pd.DataFrame, predictions: pd.DataFrame) -> pd.DataFrame:

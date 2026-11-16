@@ -5,6 +5,7 @@ description = "Prediction of Problematic Internet Use (PIU) severity in children
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "joblib>=1.6.0",
     "matplotlib>=3.11.2",
     "numpy>=2.5.3",
     "pandas>=3.0.6",
@@ -13,6 +14,7 @@ dependencies = [
     "scipy>=1.18.1",
     "seaborn>=0.13.2",
     "shap>=0.52.0",
+    "threadpoolctl>=3.7.0",
 ]
 
 [build-system]
@@ -24,6 +26,7 @@ packages = ["src/piu_severity"]
 
 [dependency-groups]
 dev = [
+    "cloudpickle>=3.1.2",
     "ipykernel>=7.4.0",
     "kaggle>=2.2.4",
     "pytest>=9.1.1",
