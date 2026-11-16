@@ -1,0 +1,5 @@
+análisis,comparación,diferencia media de QWK,valor p (unilateral),límite superior unilateral del 95 %,valor p ajustado (Holm)
+tratamiento fijo,referencia con actigrafía frente a referencia,0.02162219705093666,0.25571022662300846,0.07712190894857568,0.5114204532460169
+tratamiento fijo,principal frente a principal sin actigrafía,0.015797002287216196,0.26334620924682917,0.057867527231478574,0.5114204532460169
+tratamiento elegido en cada partición,referencia con actigrafía frente a referencia,0.026769727233758957,0.2251824632308193,0.0864564998629049,0.2493515494499486
+tratamiento elegido en cada partición,principal frente a principal sin actigrafía,0.023942127328316177,0.1246757747249743,0.05863976761812337,0.2493515494499486
