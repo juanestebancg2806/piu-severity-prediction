@@ -4,6 +4,7 @@ import pytest
 
 from piu_severity.evaluation.selection import (
     EDGE_RULE_MIN_FOLDS,
+    HOLM_FAMILIES,
     apply_selection_rule,
     chosen_value_counts,
     compare_with_best,
@@ -256,3 +257,11 @@ def test_selection_requires_rates_and_complexities_for_every_configuration():
 def test_selected_configuration_requires_exactly_one():
     with pytest.raises(ValueError):
         selected_configuration(pd.DataFrame({"selected": [True, True]}))
+
+
+def test_holm_families_keep_h4_apart_from_h2_and_h3():
+    assert HOLM_FAMILIES["complementary_superiority"] == ("H4",)
+    assert set(HOLM_FAMILIES["superiority"]) == {"H2", "H3"}
+    assert set(HOLM_FAMILIES["negligibility"]) == {"H2", "H3"}
+    tests = [test for family in HOLM_FAMILIES.values() for test in family]
+    assert tests.count("H4") == 1

@@ -8,6 +8,8 @@ from piu_severity.evaluation.persistence import run_configurations_cached
 from piu_severity.evaluation.validation import outer_splits
 from piu_severity.models.pipelines import make_search_task
 from piu_severity.models.registry import (
+    QWK_REPRODUCTION_TOLERANCE,
+    check_result,
     check_task,
     load_record,
     save_record,
@@ -97,3 +99,32 @@ def test_rebuilt_task_loads_the_cached_folds(tmp_path):
     check_task(rebuilt, entry)
     result = run_configurations_cached([rebuilt], cache_dir=tmp_path)[rebuilt.name]
     assert result.counts() == {"loaded": 2, "computed": 0}
+
+
+def test_entry_with_result_records_and_checks_the_mean_qwk(tmp_path):
+    X, y = _data()
+    splits = outer_splits(y)[:2]
+    task = _task(X, y, splits)
+    result = run_configurations_cached([task], cache_dir=tmp_path)[task.name]
+    entry = task_entry(task, "__fixed", result)
+    assert entry["n_folds"] == 2
+    assert entry["mean_qwk"] == pytest.approx(result.folds["qwk"].mean())
+    assert check_result(result, entry) == 0.0
+
+    shifted = dict(entry, mean_qwk=entry["mean_qwk"] + 2 * QWK_REPRODUCTION_TOLERANCE)
+    with pytest.raises(ValueError, match="mean QWK differs"):
+        check_result(result, shifted)
+    assert check_result(result, shifted, tolerance=1.0) < 0
+    with pytest.raises(ValueError, match="folds instead"):
+        check_result(result, dict(entry, n_folds=25))
+    with pytest.raises(ValueError, match="without its result"):
+        check_result(result, task_entry(task, "__fixed"))
+
+
+def test_entry_rejects_a_result_of_other_splits(tmp_path):
+    X, y = _data()
+    splits = outer_splits(y)
+    short = _task(X, y, splits[:2])
+    result = run_configurations_cached([short], cache_dir=tmp_path)[short.name]
+    with pytest.raises(ValueError, match="does not cover"):
+        task_entry(_task(X, y, splits), "__fixed", result)

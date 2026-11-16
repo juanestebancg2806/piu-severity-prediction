@@ -23,9 +23,16 @@ UNDERESTIMATION_TIE_TOLERANCE = 0.01
 # A grid is extended past an edge chosen in at least this many outer folds.
 EDGE_RULE_MIN_FOLDS = 5
 # Families of tests whose p-values are adjusted together with Holm's method.
+# Each family answers one question: whether the physical indicators and the
+# actigraphy improve the QWK (superiority) or add less than the minimum relevant
+# difference (negligibility); what actigraphy adds where its series exists; how
+# the severe level compares across algorithms; and, for objective 4, whether the
+# complementary variables improve the QWK (H4, defined before the complementary
+# set is evaluated).
 HOLM_FAMILIES: dict[str, tuple[str, ...]] = {
     "superiority": ("H2", "H3"),
     "negligibility": ("H2", "H3"),
+    "complementary_superiority": ("H4",),
     "actigraphy_subset": (
         "reference_with_actigraphy_vs_reference",
         "main_vs_main_without_actigraphy",
