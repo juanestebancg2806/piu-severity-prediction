@@ -1,4 +1,4 @@
-repeat,cases,hits,recall,wilson_low,wilson_high
+repetición,casos severos,aciertos,recall,Wilson inferior,Wilson superior
 0,34,0,0.0,0.0,0.10151455415332376
 1,34,0,0.0,0.0,0.10151455415332376
 2,34,0,0.0,0.0,0.10151455415332376
