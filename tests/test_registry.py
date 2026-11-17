@@ -12,6 +12,7 @@ from piu_severity.models.registry import (
     check_result,
     check_task,
     load_record,
+    rebuild_task,
     save_record,
     task_arguments,
     task_entry,
@@ -128,3 +129,28 @@ def test_entry_rejects_a_result_of_other_splits(tmp_path):
     result = run_configurations_cached([short], cache_dir=tmp_path)[short.name]
     with pytest.raises(ValueError, match="does not cover"):
         task_entry(_task(X, y, splits), "__fixed", result)
+
+
+def test_rebuild_task_checks_the_recorded_evaluation():
+    X, y = _data()
+    splits = outer_splits(y)
+    entry = task_entry(_task(X, y, splits), "__fixed")
+    task = rebuild_task(entry, X, y, splits, keep_estimators=True)
+    assert task.name == entry["name"]
+    assert task.keep_estimators
+
+    X_other = X.assign(**{"Basic_Demos-Age": X["Basic_Demos-Age"] + 1})
+    with pytest.raises(ValueError, match="signature"):
+        rebuild_task(entry, X_other, y, splits)
+
+
+def test_rebuild_task_on_another_feature_set_keeps_suffix_and_fixed_params():
+    X, y = _data()
+    splits = outer_splits(y)
+    entry = task_entry(_task(X, y, splits), "__fixed")
+    task = rebuild_task(entry, X, y, splits, feature_set="complementary")
+    assert task.name == "linear__threshold_regression__complementary__c0__i1__fixed"
+    config = task.fields["config"]
+    assert config["feature_set"] == "complementary"
+    assert config["fixed_params"] == entry["config"]["fixed_params"]
+    assert entry["config"]["feature_set"] == "reference"

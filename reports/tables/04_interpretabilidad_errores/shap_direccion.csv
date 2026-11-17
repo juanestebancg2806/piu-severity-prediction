@@ -1,0 +1,11 @@
+predictor transformado,variable,particiones con coeficiente positivo,con coeficiente negativo,con coeficiente cero,particiones en que aparece
+Basic_Demos-Age,Basic_Demos-Age,25,0,0,25
+Basic_Demos-Sex,Basic_Demos-Sex,0,19,6,25
+Physical-Weight,Physical-Weight,18,0,7,25
+BIA-BIA_ICW,BIA-BIA_ICW,15,1,9,25
+BIA-BIA_SMM,BIA-BIA_SMM,19,0,6,25
+FGC-FGC_SRL_Zone,FGC-FGC_SRL_Zone,0,18,7,25
+BIA-BIA_Fat,BIA-BIA_Fat,18,0,7,25
+FGC-FGC_SRR,FGC-FGC_SRR,17,0,8,25
+FGC-FGC_CU,FGC-FGC_CU,20,0,5,25
+FGC-FGC_GSND,FGC-FGC_GSND,16,0,9,25

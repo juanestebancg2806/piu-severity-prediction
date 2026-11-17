@@ -108,22 +108,28 @@ piu-severity-prediction/
 ├── data/                     # Datos locales (no versionados)
 │   ├── README.md
 │   ├── raw/                  # Datos originales inmutables
-│   ├── interim/              # Transformaciones intermedias
+│   ├── interim/              # Transformaciones intermedias y cachés de evaluaciones
 │   └── processed/            # Datos finales listos para modelar
 ├── notebooks/                # Exploración y narrativa
-│   └── README.md
+│   ├── README.md
+│   ├── 01_eda.ipynb                          # Objetivo 1: análisis exploratorio
+│   ├── 02_experimentos_iniciales.ipynb       # Validación, línea base y pruebas iniciales
+│   ├── 03_busqueda_modelos.ipynb             # Objetivo 2: búsqueda y selección, H2 y H3
+│   ├── 04_interpretabilidad_errores.ipynb    # Objetivo 3: errores por nivel, tamizaje y SHAP
+│   └── 05_comparacion_complementario.ipynb   # Objetivo 4: H4 e insumos del objetivo 5
 ├── src/
 │   └── piu_severity/         # Paquete instalable
 │       ├── __init__.py
 │       ├── config.py         # Rutas y configuración centralizadas
 │       ├── data/             # Carga, descarga y limpieza
 │       ├── features/         # Grupos de variables, ingeniería de variables y preprocesamiento
-│       ├── models/           # Pipelines de modelos y estimadores ordinales
-│       ├── evaluation/       # Métricas, validación cruzada y comparación de modelos
+│       ├── models/           # Pipelines, estimadores ordinales y registro de la configuración seleccionada
+│       ├── evaluation/       # Métricas, validación cruzada, pruebas, tamizaje, subgrupos e interpretabilidad
 │       └── visualization/    # Funciones de graficación reutilizables
-├── models/                   # Modelos entrenados
+├── models/                   # Registro de la configuración seleccionada (sin datos de participantes)
 ├── reports/
-│   └── figures/              # Figuras generadas
+│   ├── figures/              # Figuras generadas, una carpeta por notebook
+│   └── tables/               # Tablas agregadas en CSV, una carpeta por notebook
 └── tests/                    # Pruebas automatizadas
 ```
 

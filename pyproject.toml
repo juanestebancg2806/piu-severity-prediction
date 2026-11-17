@@ -28,6 +28,7 @@ packages = ["src/piu_severity"]
 dev = [
     "cloudpickle>=3.1.2",
     "ipykernel>=7.4.0",
+    "ipywidgets>=8.1.9",
     "kaggle>=2.2.4",
     "pytest>=9.1.1",
     "ruff>=0.16.9",

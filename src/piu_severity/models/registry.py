@@ -13,6 +13,9 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+import pandas as pd
+from numpy.typing import ArrayLike
+
 from piu_severity.config import MODELS_DIR
 from piu_severity.evaluation.persistence import (
     CachedEvaluation,
@@ -20,6 +23,8 @@ from piu_severity.evaluation.persistence import (
     canonical,
     signature_hash,
 )
+from piu_severity.evaluation.validation import Split
+from piu_severity.models.pipelines import make_search_task
 
 SELECTED_CONFIGURATION_FILE = MODELS_DIR / "selected_configuration.json"
 # Largest difference in mean QWK accepted when an evaluation is fitted again
@@ -74,6 +79,40 @@ def check_task(task: EvaluationTask, entry: Mapping) -> None:
         raise ValueError(f"Task {task.name!r} is not {entry['name']!r}.")
     if signature_hash(task.fields) != entry["signature"]:
         raise ValueError(f"{task.name!r} has another signature than the record.")
+
+
+def rebuild_task(
+    entry: Mapping,
+    X: pd.DataFrame,
+    y: ArrayLike,
+    splits: list[Split],
+    *,
+    feature_set: str | None = None,
+    memory: str | None = None,
+    keep_estimators: bool = False,
+) -> EvaluationTask:
+    """Return the task of a recorded evaluation, checked against its entry.
+
+    X, y and splits must be built as in the notebook that recorded the entry.
+    With feature_set, the task is the same evaluation on another feature set,
+    with the same name suffix and fixed parameters; it is not in the record, so
+    it is not checked, and X must hold the columns of that feature set.
+    """
+    arguments = task_arguments(entry)
+    recorded_set = arguments["feature_set"]
+    if feature_set is not None:
+        arguments["feature_set"] = feature_set
+    task = make_search_task(
+        X=X,
+        y=y,
+        splits=splits,
+        memory=memory,
+        keep_estimators=keep_estimators,
+        **arguments,
+    )
+    if arguments["feature_set"] == recorded_set:
+        check_task(task, entry)
+    return task
 
 
 def check_result(

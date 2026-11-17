@@ -1,0 +1,33 @@
+configuración,conjunto,métrica,calculada,Entrega 2
+regresión logística,principal,QWK medio,0.30778329077702343,0.308
+regresión logística,principal,recall moderado,0.32910052910052906,0.329
+regresión logística,principal,recall severo,0.5941176470588235,0.594
+regresión logística,principal,subestimación moderado o severo,0.42718446601941745,0.427
+regresión logística,principal,recall del tamizaje,0.5995145631067961,0.6
+regresión logística,principal,proporción de severos remitidos,0.9176470588235294,0.918
+regresión logística,principal,asignados a severo,369.8,370.0
+regresión logística,complementario,QWK medio,0.3840521117680298,0.384
+regresión logística,complementario,recall moderado,0.38042328042328044,0.38
+regresión logística,complementario,recall severo,0.5705882352941176,0.571
+regresión logística,complementario,subestimación moderado o severo,0.42135922330097086,0.421
+regresión logística,complementario,recall del tamizaje,0.6077669902912621,0.608
+regresión logística,complementario,proporción de severos remitidos,0.9235294117647058,0.924
+regresión logística,complementario,asignados a severo,254.0,254.0
+gradient boosting,principal,QWK medio,0.3154183959696882,0.315
+gradient boosting,principal,recall moderado,0.35291005291005295,0.353
+gradient boosting,principal,recall severo,0.15294117647058822,0.153
+gradient boosting,principal,subestimación moderado o severo,0.6077669902912621,0.608
+gradient boosting,principal,recall del tamizaje,0.433495145631068,0.433
+gradient boosting,principal,proporción de severos remitidos,0.6529411764705882,0.653
+gradient boosting,principal,asignados a severo,88.0,88.0
+gradient boosting,complementario,QWK medio,0.39295361854348526,0.393
+gradient boosting,complementario,recall moderado,0.38571428571428573,0.386
+gradient boosting,complementario,recall severo,0.17058823529411768,0.171
+gradient boosting,complementario,subestimación moderado o severo,0.5742718446601942,0.574
+gradient boosting,complementario,recall del tamizaje,0.470873786407767,0.471
+gradient boosting,complementario,proporción de severos remitidos,0.7176470588235295,0.718
+gradient boosting,complementario,asignados a severo,64.8,65.0
+regresión logística,complementario − principal,diferencia media de QWK,0.07626882099100638,0.076
+regresión logística,complementario − principal,particiones con mejora,25.0,25.0
+gradient boosting,complementario − principal,diferencia media de QWK,0.07753522257379702,0.078
+gradient boosting,complementario − principal,particiones con mejora,25.0,25.0
