@@ -1,0 +1,6 @@
+puesto,0,1,2,3,4
+1,Basic_Demos-Age,Basic_Demos-Age,Basic_Demos-Age,Basic_Demos-Age,Basic_Demos-Age
+2,Physical-Weight,Basic_Demos-Sex,Basic_Demos-Sex,BIA-BIA_ICW,Basic_Demos-Sex
+3,Basic_Demos-Sex,Physical-Weight,BIA-BIA_SMM,Basic_Demos-Sex,BIA-BIA_SMM
+4,BIA-BIA_ICW,BIA-BIA_ICW,Physical-Weight,FGC-FGC_SRL_Zone,FGC-FGC_SRL_Zone
+5,FGC-FGC_SRL_Zone,FGC-FGC_SRL_Zone,Actigraphy-ENMO_Day,BIA-BIA_SMM,Physical-Weight
