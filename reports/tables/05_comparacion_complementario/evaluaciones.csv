@@ -1,0 +1,5 @@
+análisis,conjunto,QWK medio,desviación entre repeticiones,particiones cargadas,particiones ajustadas
+tratamiento fijo,principal,0.36854030084980594,0.004738108152599742,25,0
+tratamiento elegido en cada partición,principal,0.3651561403608887,0.00742411162393575,25,0
+tratamiento fijo,complementario,0.4412588338634146,0.003992259844194959,25,0
+tratamiento elegido en cada partición,complementario,0.44061135372838295,0.0038919695870698163,25,0

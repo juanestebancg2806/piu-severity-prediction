@@ -1,0 +1,26 @@
+objetivo,métrica,notebook,valor,desviación,desviación entre,intervalo 95 % inferior,intervalo 95 % superior,intervalo,participantes
+2,H2: principal frente a referencia: diferencia media de QWK,03_busqueda_modelos,0.0020077787283564,0.0251135710647591,particiones,,0.0251458726689117,límite superior unilateral,2736
+2,H3: principal frente a principal sin actigrafía: diferencia media de QWK,03_busqueda_modelos,-0.003148697238649,0.019082030414465,particiones,,0.0144323075164251,límite superior unilateral,2736
+3,QWK,04_interpretabilidad_errores,0.3651561403608886,0.0074241116239357,repeticiones,,,sin intervalo,
+3,recall moderado,04_interpretabilidad_errores,0.3455026455026455,0.0522645813313872,repeticiones,0.3031746031746031,0.3888888888888889,remuestreo de participantes,378
+3,recall severo,04_interpretabilidad_errores,0.0,0.0,repeticiones,0.0,0.1015145541533237,Wilson,34
+3,subestimación moderado o severo,04_interpretabilidad_errores,0.6830097087378642,0.0479514848137485,repeticiones,0.6432038834951457,0.7223422330097087,remuestreo de participantes,412
+3,recall del tamizaje,04_interpretabilidad_errores,0.3752427184466019,0.0524406670905102,repeticiones,0.3341402903240827,0.4177274406627855,remuestreo de participantes,412
+3,especificidad del tamizaje,04_interpretabilidad_errores,0.8596385542168674,0.0252123558517765,repeticiones,0.8468084659395673,0.8719691273909796,remuestreo de participantes,2324
+3,valor predictivo positivo del tamizaje,04_interpretabilidad_errores,0.3228715808338365,0.0133145029838266,repeticiones,0.2825457432272543,0.3607617829248585,remuestreo de participantes,
+3,proporción remitida,04_interpretabilidad_errores,0.1757309941520468,0.0291326620282756,repeticiones,0.1633040935672514,0.1883771929824561,remuestreo de participantes,2736
+3,proporción de severos remitidos,04_interpretabilidad_errores,0.7058823529411764,0.0550243733349108,repeticiones,0.5647058823529412,0.8352941176470587,remuestreo de participantes,34
+4,"QWK (H4), tratamiento fijo: complementario − principal",05_comparacion_complementario,0.07271853301360859,0.035270297376208425,particiones,0.04022265849629572,,cota inferior unilateral,2736
+4,"QWK (H4), tratamiento elegido en cada partición: complementario − principal",05_comparacion_complementario,0.07545521336749421,0.0373070829705114,particiones,0.04108277034878315,,cota inferior unilateral,2736
+4,recall ninguno: complementario − principal,05_comparacion_complementario,0.027603513174404015,0.028456507980029376,repeticiones,0.009786700125470515,0.044792973651191975,remuestreo de participantes,1594
+4,recall leve: complementario − principal,05_comparacion_complementario,-0.012054794520547942,0.07083264803056538,repeticiones,-0.04575342465753424,0.02164383561643836,remuestreo de participantes,730
+4,recall moderado: complementario − principal,05_comparacion_complementario,0.09947089947089947,0.07268154421796812,repeticiones,0.057671957671957666,0.14179894179894179,remuestreo de participantes,378
+4,recall severo: complementario − principal,05_comparacion_complementario,0.11764705882352941,0.05502437333491091,repeticiones,0.041176470588235294,0.21176470588235294,remuestreo de participantes,34
+4,subestimación moderado o severo: complementario − principal,05_comparacion_complementario,-0.1233009708737864,0.06007955733474632,repeticiones,-0.16019417475728157,-0.08736650485436911,remuestreo de participantes,412
+4,recall del tamizaje: complementario − principal,05_comparacion_complementario,0.12572815533980583,0.06705357922264857,repeticiones,0.08786407766990292,0.16359223300970877,remuestreo de participantes,412
+4,especificidad del tamizaje: complementario − principal,05_comparacion_complementario,-0.005249569707401032,0.034982814759290784,repeticiones,-0.014974182444061962,0.004733218588640275,remuestreo de participantes,2324
+4,proporción remitida: complementario − principal,05_comparacion_complementario,0.023391812865497075,0.03977290076340417,repeticiones,0.012938596491228072,0.033625730994152045,remuestreo de participantes,2736
+4,proporción de severos remitidos: complementario − principal,05_comparacion_complementario,0.14705882352941177,0.08574929257125441,repeticiones,0.0,0.3,remuestreo de participantes,34
+4,QWK dentro del grupo de 5 a 12 años: complementario − principal,05_comparacion_complementario,0.11716134022940361,0.005064434786556847,repeticiones,,,sin intervalo,2070
+4,QWK dentro del grupo de 13 a 17 años: complementario − principal,05_comparacion_complementario,0.1299045835124007,0.01464296484073798,repeticiones,,,sin intervalo,582
+4,QWK dentro del grupo de 18 a 22 años: complementario − principal,05_comparacion_complementario,0.08591685168055671,0.02671849311289206,repeticiones,,,sin intervalo,84
